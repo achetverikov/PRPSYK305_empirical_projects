@@ -3,7 +3,8 @@
 on:
   push:
     paths: ['**.Rmd']
-
+  workflow_dispatch:
+  
 name: render-rmarkdown.yaml
 
 permissions: read-all
