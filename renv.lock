@@ -61,6 +61,26 @@
       ],
       "Hash": "45f0398006e83a5b10b72a90663d8d8c"
     },
+    "apastats": {
+      "Package": "apastats",
+      "Version": "0.5",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "achetverikov",
+      "RemoteRepo": "apastats",
+      "RemoteRef": "master",
+      "RemoteSha": "acbf761e3f66643c96e9b6ad65fdcd4af01382ed",
+      "Requirements": [
+        "R",
+        "data.table",
+        "ggplot2",
+        "stats",
+        "stringr",
+        "utils"
+      ],
+      "Hash": "401570151eafbb2730126ec2259cb38b"
+    },
     "askpass": {
       "Package": "askpass",
       "Version": "1.2.0",

@@ -4,6 +4,7 @@ library(httr)
 library(stringr)
 library(naturalsort)
 library(circhelp)
+library(apastats)
 
 headers = c(
   `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
@@ -99,7 +100,7 @@ for (study_uid in study_uid_list){
 }
 
 data <- rbindlist(data_list)
-data <- drop.empty.cols(data)
+data <- apatsats::drop.empty.cols(data)
 data <- data[block>0&user_pid!='999999',.SD,.SDcols = !c('response_type','trial_type')]
 data[user_pid=='319362'&startDate=='2024-09-23 17:08:03', user_session_id:= 1]
 data[,.N, keyby = .(endDate,user_pid,subject_id,  user_session_id)][,.N, by = user_session_id]
