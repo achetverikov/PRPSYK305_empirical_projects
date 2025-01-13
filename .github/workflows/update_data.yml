@@ -26,16 +26,13 @@ jobs:
 
       - uses: r-lib/actions/setup-renv@v2
       
-      - name: Render my document to all types
+      - name: Download and update data
         run: Rscript update_data.R
         env:
           JATOS_TOKEN: ${{ secrets.JATOS_TOKEN }}
 
-      - name: Commit Results
-        run: |
-          git config --local user.name "$GITHUB_ACTOR"
-          git config --local user.email "$GITHUB_ACTOR@users.noreply.github.com"
-          git commit color_in_space_data.rds -m 'Re-built data' || echo "No changes to commit"
-          
-          git push origin || echo "No changes to commit"
-        
+      - name: Upload RDS file
+        uses: actions/upload-artifact@v3
+        with:
+          name: color_in_space_data-rds
+          path: data/color_in_space_data.rds

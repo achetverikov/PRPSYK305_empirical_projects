@@ -107,4 +107,5 @@ data[,.N, keyby = .(endDate,user_pid,subject_id,  user_session_id)][,.N, by = us
 data[,table(user_pid,  user_session_id)]
 
 data[,sub_sess:=naturalsort::naturalfactor(interaction(user_pid, user_session_id, sep='.S'))]
-saveRDS(data, 'color_in_space_data.rds')
+dir.create("data", showWarnings = FALSE) # Ensure directory exists
+saveRDS(data, file = "data/color_in_space_data.rds")
