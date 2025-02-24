@@ -10,7 +10,7 @@ name: Render quarto
 permissions: read-all
 
 jobs:
-  render-rmarkdown:
+  render-quatro:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -29,16 +29,14 @@ jobs:
 
       - uses: r-lib/actions/setup-renv@v2
       
-      - name: Render my document to all types
-        run: Rscript update_data.R
-        env:
-          JATOS_TOKEN: ${{ secrets.JATOS_TOKEN }}
-          JATOS_DECOY_STUDY_UID:  ${{ secrets.JATOS_DECOY_STUDY_UID }}
       - name: Render Quarto Project
         uses: quarto-dev/quarto-actions/render@v2
         with:
           to: html # If set, it will be equivalent to `quarto render --to html`
           path: data_processing # By default, the current working dir is used i.e `quarto render .`
+        env:
+          JATOS_TOKEN: ${{ secrets.JATOS_TOKEN }}
+          JATOS_DECOY_STUDY_UID:  ${{ secrets.JATOS_DECOY_STUDY_UID }}
           
       - name: Render Rmarkdown files and Commit Results
         run: |
