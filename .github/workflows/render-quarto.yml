@@ -5,7 +5,7 @@ on:
     paths: ['**.Rmd']
   workflow_dispatch:
 
-name: render-rmarkdown.yaml
+name: Render quarto
 
 permissions: read-all
 
