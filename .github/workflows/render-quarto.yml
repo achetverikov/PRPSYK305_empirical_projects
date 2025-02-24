@@ -33,7 +33,7 @@ jobs:
         uses: quarto-dev/quarto-actions/render@v2
         with:
           to: html # If set, it will be equivalent to `quarto render --to html`
-          path: data_processing # By default, the current working dir is used i.e `quarto render .`
+          path: data_processing/decoy_choices.qmd # By default, the current working dir is used i.e `quarto render .`
         env:
           JATOS_TOKEN: ${{ secrets.JATOS_TOKEN }}
           JATOS_DECOY_STUDY_UID:  ${{ secrets.JATOS_DECOY_STUDY_UID }}
