@@ -19,6 +19,9 @@ knitr:
     dev: svg
 editor_options: 
   chunk_output_type: console
+format: 
+  html: 
+    embed-resources: true
 ---
 
 
