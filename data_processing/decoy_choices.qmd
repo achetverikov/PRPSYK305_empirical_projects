@@ -161,7 +161,7 @@ datam[,stim_chosen:=as.numeric(response==stim_number)]
 datam[,rt:=rt/1000]
 
 data_out <- datam[stim_chosen==1, .(participant,trial_counter,condition,target_to_competitor,decoy_reduction, decoy_on, chosen_item  = stim_type, correct, rt)][order(participant, trial_counter)]
-fwrite(data_out, '../data_after_preprocessing/decoy.csv')
+fwrite(data_out, 'decoy.csv')
 ```
 
 # Instructions
