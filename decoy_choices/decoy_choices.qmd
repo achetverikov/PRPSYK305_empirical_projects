@@ -29,6 +29,8 @@ library(data.table)
 library(jsonlite)
 library(stringr)
 library(knitr)
+library(Hmisc)
+library(superb)
 
 default_font = 'Gill Sans Nova Light'
 
@@ -204,7 +206,7 @@ ggplot(data_out, aes(x = chosen_item, fill = decoy_on))+geom_bar( position = 'do
 
 res <- ez::ezANOVA(data_out, dv = 'correct', within = c('condition','decoy_on'), wid = .(participant), type = 3)
 
-plot.pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w')+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
+plot.pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w', within_subj =  T)+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
 ```
 
 The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable. The results are provided below:
@@ -220,7 +222,8 @@ The effects of decoy type and condition were then analyzed using a within-subjec
 
 res_rt <- ez::ezANOVA(data_out, dv = 'rt', within = c('condition','decoy_on'), wid = .(participant), type = 3)
 
-plot.pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'participant', design = 'w')+labs(y = 'Response time, s', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
+
+plot.pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'participant', design = 'w', within_subj = T)+labs(y = 'Response time, s', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
 ```
 
 The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable. The results are provided below:
