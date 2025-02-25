@@ -29,6 +29,7 @@ library(jsonlite)
 library(patchwork)
 library(ggh4x)
 library(stringr)
+library(knitr)
 library(lme4)
 
 default_font = 'Gill Sans Nova Light'
