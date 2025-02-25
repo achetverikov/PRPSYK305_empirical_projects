@@ -171,7 +171,7 @@ fwrite(data_out, 'decoy.csv')
 
 # Instructions
 
-Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `data_after_preprocessing/decoy.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `decoy.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
 
 * `participant` - random ID identifying a participant
 * `trial_counter` - trial number within the experiment
