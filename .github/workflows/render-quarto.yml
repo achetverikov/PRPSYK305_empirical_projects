@@ -44,7 +44,7 @@ jobs:
           git config --local user.email "$GITHUB_ACTOR@users.noreply.github.com"
       
           # Add all files starting with 'decoy'
-          git add decoy*
+          git add decoy_choices/decoy*
       
           # Commit changes if there are any
           git commit -m 'Updated decoy files' || echo "No changes to commit"
