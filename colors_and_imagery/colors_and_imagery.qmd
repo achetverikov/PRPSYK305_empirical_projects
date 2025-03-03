@@ -1,0 +1,270 @@
+---
+title: Choices in a decoy task
+knitr:
+  opts_chunk: 
+    echo: false
+    message: false
+    warning: false
+    comment: NA
+    cache: false
+    fig.width: 7
+    fig.asp: 0.5
+    fig.path: "figures_decoy/"
+    dpi: 320
+    external: false
+    res: 320
+    results: "hide"
+    split: false 
+    tidy: false
+    dev: svg
+editor_options: 
+  chunk_output_type: console
+format: 
+  html: 
+    embed-resources: true
+---
+
+
+```{r setup}
+library(httr)
+library(apastats)
+library(data.table)
+library(jsonlite)
+library(stringr)
+library(knitr)
+library(Hmisc)
+library(superb)
+library(circhelp)
+
+default_font = 'Gill Sans Nova Light'
+
+default_font_size <- 10
+default_line_size <- 1/.pt/3.82*4 
+default_font_size_mm <- default_font_size/ggplot2:::.pt
+
+default_point_size <- 4*default_line_size
+
+update_geom_defaults("line", list(linewidth = default_line_size))
+update_geom_defaults("text", list(size = default_font_size_mm, family = default_font))
+update_geom_defaults("segment", list(linewidth = default_line_size))
+update_geom_defaults("pointrange", list(linewidth = default_line_size))
+update_geom_defaults("vline", list(linewidth = default_line_size, colour = '#AFABAB'))
+update_geom_defaults("hline", list(linewidth = default_line_size, colour = '#AFABAB'))
+update_geom_defaults('function', list(linewidth = default_line_size))
+
+default_theme<-theme_light(base_size = default_font_size, base_line_size = default_line_size, base_family = default_font)+theme(
+  axis.line=element_line(linewidth = I(0.5)), 
+  axis.ticks= element_line(linewidth = I(0.25), colour = 'gray'),
+  axis.line.x=element_line(),
+  axis.line.y=element_line(),
+  panel.grid.major = element_blank(), 
+  panel.grid.minor = element_blank(),
+  legend.title=element_text(size=rel(1)), 
+  strip.text=element_text(size=rel(1), colour = 'black'), 
+  axis.text=element_text(size=rel(0.9), colour = '#4e4e4e'), 
+  axis.title=element_text(size=rel(1), colour = '#4e4e4e'), 
+  panel.border= element_blank(),
+  strip.background = element_blank(),
+  legend.position	='right', 
+  legend.key.height = unit(0.7, 'lines'),
+  plot.title=element_text(size=rel(1), hjust = 0.5),
+  plot.tag.position = c(0,1),
+  plot.background = element_blank(),
+  text=element_text(size=default_font_size), 
+  legend.text=element_text(size=rel(1)), 
+  axis.line.x.bottom = element_blank(), 
+  axis.line.y.left = element_blank(),
+  axis.line.x.top = element_blank(),
+  axis.line.y.right = element_blank())
+theme_set(default_theme)
+
+default_colors <-c('#3498db','#009f06','#FF7F00', '#7A378B','#f72034')
+scale_colour_discrete <- function(...) scale_colour_manual(values=default_colors, ...)
+scale_fill_discrete <- function(...) scale_fill_manual(values=default_colors, ...)
+scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22), ...)
+
+
+headers = c(
+  `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
+)
+
+jatos_url <- 'https://jatos.mindprobe.eu/jatos/api/v1/'
+
+randstring <- function(n = 5000) {
+  a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
+  paste0(a, sprintf("%04d", sample(9999, n, TRUE)), sample(LETTERS, n, TRUE))
+}
+
+data_list <- list()
+study_uid <- Sys.getenv('JATOS_COLORS_AND_IMAGERY_STUDY_UID')
+
+temp_dir <- tempdir(check = T)
+temp_dir <- gsub('\\\\', '/', temp_dir)
+temp_dir <- paste(temp_dir, randstring(1), sep = '/')
+res_file <- paste0(tempfile(),'.zip')
+
+url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
+system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
+unzip(res_file, exdir=temp_dir)  # unzip your file
+
+metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
+
+finished_study_ids <- metadata[,c('id', "endDate", "startDate")]
+setDT(finished_study_ids)
+finished_study_ids[,id:=as.character(id)]
+finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
+finished_study_ids[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
+finished_study_ids <- finished_study_ids[!is.na(endDate)] 
+comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
+  dt <- as.data.table(metadata$componentResults[[x]])
+  dt
+}), fill = T)
+comp_res_meta[componentId=='29868'] # vviq
+flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
+flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
+flist_vviq <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId=='29868',id]]
+flist_colors <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId!='29868',id]]
+
+data_vviq <- rbindlist(lapply(c(flist_vviq), \(x){
+  data <- read_json(x)
+  data.table(subject_id = str_extract(x, 'study_result_(\\d+)', group = 1),
+             vviq = sum(sapply(data,\(q) ifelse(length(q$response)==4, do.call(sum, q$response), 0))))
+}))
+
+data_color <- suppressWarnings(rbindlist(lapply(c(flist_colors), \(x){
+  print(x)
+  comp_res_id <- str_extract(x, '(?<=comp-result_)\\d{6}')
+  data <- read_json(x)
+  if (length(data)<10){
+    return(data.frame())
+  }
+  browser_check <- data.frame(data[[1]])
+  setDT(browser_check)
+  
+  data <- data[sapply(data, \(x) x$trial_type=='psychophysics')]
+  data <- rbindlist(data, fill = T)
+  if ('score' %nin% colnames(data)){
+    return(data.frame())
+  }
+
+    
+  data[,score:=as.numeric(score)]
+  data[!is.na(left_colors), left_sd:=circ_sd_360(as.numeric(str_split(left_colors,',', simplify = T))), by = left_colors]
+  data[!is.na(right_colors), right_sd:=circ_sd_360(as.numeric(str_split(right_colors,',', simplify = T))), by = right_colors]
+  data[,left_colors:=NULL]
+  data[,right_colors:=NULL]
+  setnafill(data, type = "locf",cols = c('target_color','distr_color','left_color','right_color','target_sd', 'distr_sd', 'target_x', 'distr_x', 'similarity_bin', 'color_bin','left_sd','right_sd','cue_pos','cued_color','cue_n'))
+  setnafill(data, type = "nocb",cols = c('score'))
+  #
+  if (browser_check[1, .(trial_type)]=='browser-check'){
+    data[,c('window_width','window_height'):=browser_check[,.(width, height)]]
+  }
+  data<-data[trial_type=='psychophysics'&seq_type=='response']
+
+  data[,subject_id:=str_extract(x, 'study_result_(\\d+)', group = 1)]
+  data[,result_id:=str_extract(x, 'comp-result_(\\d+)', group = 1)]
+  data <- merge(data, finished_study_ids, by.x = 'subject_id', by.y = 'id')
+  
+  data
+  
+}), fill = T))
+
+unlink(paste0(temp_dir, "/*"))
+
+data_color[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data_color$subject_id)), labels = 1:length(unique(data_color$subject_id))))]
+data_color <- merge(data_color, data_vviq, by = 'subject_id')
+data_color[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
+
+setnafill(data_color, type = "locf", cols = c('window_height','window_width'))
+drop.empty.cols(data_color)
+data_color <- data_color[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
+```
+
+```{r}
+max_price = 5000
+min_price = 200
+
+max_quality = 5
+min_quality = 2
+
+datam <- melt(data, 
+     measure.vars = patterns(gr_angle = "^gr_angle_.*", price = "^price_.*", quality = '^quality',
+                             stim_number = "stim_number", label_price = "label_price", label_quality = "label_quality"     ))
+
+datam[,rel_price := (max_price - price)/(max_price-min_price)]
+datam[,rel_quality := (quality-min_quality)/(max_quality-min_quality)]
+datam[,attr_sum:=rel_price+rel_quality, by = .(trial_counter, variable, participant)]
+datam[,stim_type := factor(variable, levels = c(1:3), labels = c('target','competitor','decoy'))]
+datam[,stim_chosen:=as.numeric(response==stim_number)]
+datam[,rt:=rt/1000]
+
+data_out <- datam[stim_chosen==1, .(participant,trial_counter,condition,target_to_competitor,decoy_reduction, decoy_on, chosen_item  = stim_type, correct, rt)][order(participant, trial_counter)]
+fwrite(data_out, 'decoy.csv')
+```
+
+# Instructions
+
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `decoy.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+
+* `participant` - random ID identifying a participant
+* `trial_counter` - trial number within the experiment
+* `condition` [numeric/perceptual] - indicates whether numeric labels were present or not
+* `target_to_competitor` - how much worse (on a scale from 0 to 1) was the competitor compared to the target
+* `decoy_reduction` - how much worse (on a scale from 0 to 1) was the decoy compared to the item it was related to it
+* `decoy_on` [target/competitor] - which item was the decoy related to - target or competitor
+* `chosen_item` - which item was chosen as a response
+* `correct` - whether the response was correct
+* `rt` - time (in seconds) required for the response
+
+# Descriptive statistics
+
+```{r descr_stats}
+data_descr <- data_out[,.(.N, mean_RT = mean(rt)), keyby = .(participant, chosen_item)][,.(chosen_item, prop_choices = 100*N/sum(N), mean_RT), by = participant]
+```
+
+The study has `r data_out[,apastats:::numbers2words(lengthu(participant))]` participants.
+On average, participants chose `r data_descr[,describe.mean.conf(prop_choices), by = .(chosen_item)][,paste_and(sprintf('%ss in %s', chosen_item, V1))]`% of trials (here and later the confidence intervals are reported in square brackets after the means). Response times were `r data_descr[,describe.mean.conf(mean_RT), by = .(chosen_item)][,paste_and(V1)]`, respectively. 
+
+# Do decoys influence choices differently under different conditions?
+
+```{r}
+#| fig-cap: Response count as a function of condition and decoy type.
+#| label: fig-resp_count
+
+ggplot(data_out, aes(x = chosen_item, fill = decoy_on))+geom_bar( position = 'dodge')+labs(y = 'How many times an item is chosen', fill = 'Decoy is similar to...', x = 'Item type')+facet_grid(~condition)
+```
+
+@fig-resp_count shows the relationship between the decoy type (whether decoy is similar to a target or a competitor), condition (whether there were numeric labels present [numeric] or not [perceptual]), and the probability of choosing one of the response options. 
+
+```{r}
+#| fig-cap: The effects of decoy type and condition on the accuracy of observers' responses.
+#| label: fig-accuracy
+
+res <- ez::ezANOVA(data_out, dv = 'correct', within = c('condition','decoy_on'), wid = .(participant), type = 3)
+
+plot.pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w', within_subj =  T)+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
+```
+
+The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable. The results are provided below:
+
+* the effect of condition `r describe.ezanova(res, 'condition')`
+* the effect of decoy type `r describe.ezanova(res, 'decoy_on')`
+* the effect of their interaction `r describe.ezanova(res, 'condition:decoy_on')`
+
+
+```{r}
+#| fig-cap: The effects of decoy type and condition on the observers' response times.
+#| label: fig-rt
+
+res_rt <- ez::ezANOVA(data_out, dv = 'rt', within = c('condition','decoy_on'), wid = .(participant), type = 3)
+
+
+plot.pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'participant', design = 'w', within_subj = T)+labs(y = 'Response time, s', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
+```
+
+The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable. The results are provided below:
+
+* the effect of condition `r describe.ezanova(res_rt, 'condition')`
+* the effect of decoy type `r describe.ezanova(res_rt, 'decoy_on')`
+* the effect of their interaction `r describe.ezanova(res_rt, 'condition:decoy_on')`
+
