@@ -1,0 +1,171 @@
+---
+title: Choices in a decoy task
+knitr:
+  opts_chunk: 
+    echo: false
+    message: false
+    warning: false
+    comment: NA
+    cache: false
+    fig.width: 7
+    fig.asp: 0.5
+    fig.path: "figures_decoy/"
+    dpi: 320
+    external: false
+    res: 320
+    results: "hide"
+    split: false 
+    tidy: false
+    dev: svg
+editor_options: 
+  chunk_output_type: console
+format: 
+  html: 
+    embed-resources: true
+---
+
+
+```{r setup}
+library(httr)
+library(apastats)
+library(data.table)
+library(jsonlite)
+library(stringr)
+library(knitr)
+library(Hmisc)
+library(superb)
+library(circhelp)
+
+default_font = 'Gill Sans Nova Light'
+
+default_font_size <- 10
+default_line_size <- 1/.pt/3.82*4 
+default_font_size_mm <- default_font_size/ggplot2:::.pt
+
+default_point_size <- 4*default_line_size
+
+update_geom_defaults("line", list(linewidth = default_line_size))
+update_geom_defaults("text", list(size = default_font_size_mm, family = default_font))
+update_geom_defaults("segment", list(linewidth = default_line_size))
+update_geom_defaults("pointrange", list(linewidth = default_line_size))
+update_geom_defaults("vline", list(linewidth = default_line_size, colour = '#AFABAB'))
+update_geom_defaults("hline", list(linewidth = default_line_size, colour = '#AFABAB'))
+update_geom_defaults('function', list(linewidth = default_line_size))
+
+default_theme<-theme_light(base_size = default_font_size, base_line_size = default_line_size, base_family = default_font)+theme(
+  axis.line=element_line(linewidth = I(0.5)), 
+  axis.ticks= element_line(linewidth = I(0.25), colour = 'gray'),
+  axis.line.x=element_line(),
+  axis.line.y=element_line(),
+  panel.grid.major = element_blank(), 
+  panel.grid.minor = element_blank(),
+  legend.title=element_text(size=rel(1)), 
+  strip.text=element_text(size=rel(1), colour = 'black'), 
+  axis.text=element_text(size=rel(0.9), colour = '#4e4e4e'), 
+  axis.title=element_text(size=rel(1), colour = '#4e4e4e'), 
+  panel.border= element_blank(),
+  strip.background = element_blank(),
+  legend.position	='right', 
+  legend.key.height = unit(0.7, 'lines'),
+  plot.title=element_text(size=rel(1), hjust = 0.5),
+  plot.tag.position = c(0,1),
+  plot.background = element_blank(),
+  text=element_text(size=default_font_size), 
+  legend.text=element_text(size=rel(1)), 
+  axis.line.x.bottom = element_blank(), 
+  axis.line.y.left = element_blank(),
+  axis.line.x.top = element_blank(),
+  axis.line.y.right = element_blank())
+theme_set(default_theme)
+
+default_colors <-c('#3498db','#009f06','#FF7F00', '#7A378B','#f72034')
+scale_colour_discrete <- function(...) scale_colour_manual(values=default_colors, ...)
+scale_fill_discrete <- function(...) scale_fill_manual(values=default_colors, ...)
+scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22), ...)
+
+
+headers = c(
+  `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
+)
+
+jatos_url <- 'https://jatos.mindprobe.eu/jatos/api/v1/'
+
+randstring <- function(n = 5000) {
+  a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
+  paste0(a, sprintf("%04d", sample(9999, n, TRUE)), sample(LETTERS, n, TRUE))
+}
+
+data_list <- list()
+study_uid <- Sys.getenv('JATOS_TEMP_ATT_STUDY_UID')
+
+temp_dir <- tempdir(check = T)
+temp_dir <- gsub('\\\\', '/', temp_dir)
+temp_dir <- paste(temp_dir, randstring(1), sep = '/')
+res_file <- paste0(tempfile(),'.zip')
+
+url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
+system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
+unzip(res_file, exdir=temp_dir)  # unzip your file
+
+
+metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
+
+finished_study_ids <- metadata[,c('id', "endDate", "startDate")]
+setDT(finished_study_ids)
+finished_study_ids[,id:=as.character(id)]
+finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
+finished_study_ids[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
+
+comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
+  dt <- as.data.table(metadata$componentResults[[x]])
+  dt
+}), fill = T)
+
+flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
+flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
+
+data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
+  print(x)
+  comp_res_id <- str_extract(x, '(?<=comp-result_)\\d{6}')
+  data <- read_json(x)
+  if (length(data)<10){
+    return(data.frame())
+  }
+  data <- data[sapply(data, \(x) x$trial_type=='psychophysics')]
+  
+  data <- rbindlist(data, fill = T)
+
+  data[,subject_id:=str_extract(x, 'study_result_(\\d+)', group = 1)]
+  data[,result_id:=str_extract(x, 'comp-result_(\\d+)', group = 1)]
+  data <- merge(data, finished_study_ids, by.x = 'subject_id', by.y = 'id')
+  
+  data
+  
+}), fill = T))
+
+unlink(paste0(temp_dir, "/*"))
+setnafill(data, type = "nocb", cols = c('start_ori','resp_ori','error','trial_number'))
+
+data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
+data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
+data <- data[seq_type=='stimuli']
+drop.empty.cols(data)
+data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
+data[,abs_err:=abs(error)]
+datam <- melt(data[,.(participant, block, trial_index, t1_ori, t2_ori, t3_ori, real_target_position)], measure.vars = patterns('_ori'))
+datam[,item_pos:=as.numeric(str_extract( variable,'\\d+'))]
+datam <- datam[order(participant, block, trial_index, item_pos)]
+datam[,c('diff_to_next','diff_to_prev'):=list(angle_diff_180(value,shift(value, -1)),angle_diff_180(value,shift(value, 1))), by = .(participant, block, trial_index)]
+data<-merge(data, datam[real_target_position==item_pos, .(participant, block, trial_index, target_ori = value, diff_to_next, diff_to_prev)], by = c('participant', 'block', 'trial_index'))
+```
+
+```{r}
+plot.pointrange(data, aes(x = cue_type, y = abs_err))
+
+ggplot(data, aes(x = diff_to_next, y = error, color = factor(real_target_position)))+geom_smooth()+gg_crosshair()
+ggplot(data, aes(x = diff_to_prev, y = error, color = factor(real_target_position)))+geom_smooth()+gg_crosshair()
+```
+
+```{r}
+data_color[,.(bias_by_block=mean.nn(bias_to_distr_corr), by = .(participant, block, vviq))]
+```
