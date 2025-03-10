@@ -228,6 +228,8 @@ plot.pointrange(tomatoes, aes(x = noise, y = abs_err, color = noise),
                 within_subj = T, wid ='subject_id', withinvars = c('cue_n','noise'))+
   facet_grid(.~cue_n)
 
+
+
 tomatoes[,subject:=paste0('S',as.numeric(as.factor(subject_id)))]
 tomatoes[,subject:=naturalsort::naturalfactor(subject)]
 
