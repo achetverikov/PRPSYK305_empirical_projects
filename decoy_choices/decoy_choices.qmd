@@ -9,6 +9,7 @@ knitr:
     cache: false
     fig.width: 7
     fig.asp: 0.5
+    out.width: 100%
     fig.path: "figures_decoy/"
     dpi: 320
     external: false
@@ -167,6 +168,10 @@ datam[,rt:=rt/1000]
 
 data_out <- datam[stim_chosen==1, .(participant,trial_counter,condition,target_to_competitor,decoy_reduction, decoy_on, chosen_item  = stim_type, correct, rt)][order(participant, trial_counter)]
 fwrite(data_out, 'decoy.csv')
+```
+
+```{r results='show'}
+data[,.N, keyby = participant]
 ```
 
 # Instructions

@@ -9,8 +9,10 @@ knitr:
     cache: false
     fig.width: 7
     fig.asp: 0.5
-    fig.path: "figures_decoy/"
+    fig.path: "figures_tomatoes/"
     dpi: 320
+    out.width: 100%
+    
     external: false
     res: 320
     results: "hide"
@@ -212,6 +214,9 @@ tomatoes<-tomatoes[n_by_subj>350&block>0]
 
 tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id)]
 tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),  n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id, cue_n)]
+```
+
+```{r results='show'}
 tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean.nn(abs_err)), keyby = .(startDate, endDate,  subject_id)]
 ```
 
@@ -228,20 +233,24 @@ plot.pointrange(tomatoes, aes(x = noise, y = abs_err, color = noise),
                 within_subj = T, wid ='subject_id', withinvars = c('cue_n','noise'))+
   facet_grid(.~cue_n)
 
+```
 
-
+```{r}
 tomatoes[,subject:=paste0('S',as.numeric(as.factor(subject_id)))]
 tomatoes[,subject:=naturalsort::naturalfactor(subject)]
 
 tomatoes[,.(.N, circ_sd_360(error, na.rm = T)), by = subject_id]
-db_res <- lapply(split(tomatoes[!is.na(error),], by = c('subject_id', 'cue_n')), \(dt){
-  dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist'):=remove_cardinal_biases(error, target_color, space = '360', plots = 'hide')[,c('be_c','is_outlier','pred','which_bin','shifted_x')], by = .(subject_id, cue_n)]
+db_res <- lapply(split(tomatoes[!is.na(error),], by = c('subject_id', 'task_type')), \(dt){
+  dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist'):=remove_cardinal_biases(error, target_color, space = '360', plots = 'hide')[,c('be_c','is_outlier','pred','which_bin','shifted_x')], by = .(subject_id, task_type)]
   dt
 })
 
 tomatoes <-rbindlist(db_res)
+
+```
+```{r}
 tomatoes[is_outlier==F&abs_err>90, is_outlier:=T]
-tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(error, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mymean(is_outlier), mean_abs_err= mymean(abs_err)), keyby = .(subject_id, user_session_id)]
+tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(error, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mymean(is_outlier), mean_abs_err= mymean(abs_err)), keyby = .(subject_id)]
 
 tomatoes[,bias_to_distr_corr:=sign(td_dist)*be_c]
 tomatoes[,bias_to_distr_raw:=sign(td_dist)*error]

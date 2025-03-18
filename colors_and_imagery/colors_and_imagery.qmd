@@ -1,5 +1,5 @@
 ---
-title: Choices in a decoy task
+title: Colors and imagery
 knitr:
   opts_chunk: 
     echo: false
@@ -9,10 +9,11 @@ knitr:
     cache: false
     fig.width: 7
     fig.asp: 0.5
-    fig.path: "figures_decoy/"
+    fig.path: "figures_colors/"
     dpi: 320
     external: false
     res: 320
+    out.width: 100%
     results: "hide"
     split: false 
     tidy: false
@@ -83,6 +84,16 @@ scale_colour_discrete <- function(...) scale_colour_manual(values=default_colors
 scale_fill_discrete <- function(...) scale_fill_manual(values=default_colors, ...)
 scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22), ...)
 
+
+
+gg_crosshair <- function(xint = 0, yint = 0, lty = 2) {
+  if (!is.null(xint)) gv = geom_vline(xintercept = xint, linetype = lty)
+  else gv = NULL
+  if (!is.null(yint)) gh = geom_hline(yintercept = yint, linetype = lty)
+  else gh = NULL
+  
+  list(gv, gh)
+}
 
 headers = c(
   `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
@@ -171,9 +182,10 @@ data_color <- suppressWarnings(rbindlist(lapply(c(flist_colors), \(x){
 
 unlink(paste0(temp_dir, "/*"))
 
-data_color[,participant:=as.numeric(factor(participant, levels = sample(unique(data_color$participant)), labels = 1:length(unique(data_color$participant))))]
 data_color <- merge(data_color, data_vviq, by = 'participant')
-data_color[,c('startDate','endDate','result_id','participant','avg_frame_time'):=NULL]
+data_color[,participant:=paste0('S',as.numeric(factor(participant, levels = sample(unique(data_color$participant)), labels = 1:length(unique(data_color$participant)))))]
+
+data_color[,c('startDate','endDate','result_id','avg_frame_time'):=NULL]
 
 setnafill(data_color, type = "locf", cols = c('window_height','window_width'))
 drop.empty.cols(data_color)
@@ -216,9 +228,6 @@ plot.pointrange(data_color, aes(x = noise, y = abs_err, color = noise),
                 within_subj = T, wid ='participant', withinvars = c('cue_n','noise'))+
   facet_grid(.~cue_n)
 
-data_color[,subject:=paste0('S',as.numeric(as.factor(participant)))]
-data_color[,subject:=naturalsort::naturalfactor(subject)]
-
 data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant]
 db_res <- lapply(split(data_color[!is.na(error),], by = c('participant', 'cue_n')), \(dt){
   dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist','mad_outlier'):=remove_cardinal_biases_discrete(error, similarity_bin, space = 360)[,c('be_c','is_outlier')], by = .(participant, cue_n)]
@@ -236,9 +245,6 @@ data_color[,abs_be_c:=abs(be_c)]
 data_color[,avg_abs_err:=mean.nn(abs(be_c)), by = participant]
 data_color[,noise_equal:=factor(distr_noise==target_noise, levels = c(F, T), labels = c('Unequal noise', 'Equal noise'))]
 data_color[,bias_distr:=NULL]
-saveRDS(data_color, 'data_color_fd_2r_debiased.rds')
-
-data_color <- readRDS('data_color_fd_2r_debiased.rds')
 data_color[,similarity_binf:=factor(similarity_bin)]
 names(data_color)
 
@@ -248,5 +254,6 @@ ggplot(data_color[is_outlier==F], aes(x = similarity_bin, y = bias_to_distr_corr
 ```
 
 ```{r}
-data_color[,.(bias_by_block=mean.nn(bias_to_distr_corr), by = .(participant, block, vviq))]
+data_color[,.(bias_by_block=mean.nn(bias_to_distr_corr)), by = .(participant,  vviq)]
+
 ```

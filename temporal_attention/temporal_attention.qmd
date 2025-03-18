@@ -1,5 +1,5 @@
 ---
-title: Choices in a decoy task
+title: Temporal attention
 knitr:
   opts_chunk: 
     echo: false
@@ -9,11 +9,12 @@ knitr:
     cache: false
     fig.width: 7
     fig.asp: 0.5
-    fig.path: "figures_decoy/"
+    fig.path: "figures/"
     dpi: 320
     external: false
     res: 320
     results: "hide"
+    out.width: 100%
     split: false 
     tidy: false
     dev: svg
@@ -32,6 +33,7 @@ library(data.table)
 library(jsonlite)
 library(stringr)
 library(knitr)
+library(patchwork)
 library(Hmisc)
 library(superb)
 library(circhelp)
@@ -84,6 +86,14 @@ scale_fill_discrete <- function(...) scale_fill_manual(values=default_colors, ..
 scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22), ...)
 
 
+gg_crosshair <- function(xint = 0, yint = 0, lty = 2) {
+  if (!is.null(xint)) gv = geom_vline(xintercept = xint, linetype = lty)
+  else gv = NULL
+  if (!is.null(yint)) gh = geom_hline(yintercept = yint, linetype = lty)
+  else gh = NULL
+  
+  list(gv, gh)
+}
 headers = c(
   `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
 )
@@ -159,13 +169,20 @@ datam[,c('diff_to_next','diff_to_prev'):=list(angle_diff_180(value,shift(value, 
 data<-merge(data, datam[real_target_position==item_pos, .(participant, block, trial_index, target_ori = value, diff_to_next, diff_to_prev)], by = c('participant', 'block', 'trial_index'))
 ```
 
-```{r}
-plot.pointrange(data, aes(x = cue_type, y = abs_err))
-
-ggplot(data, aes(x = diff_to_next, y = error, color = factor(real_target_position)))+geom_smooth()+gg_crosshair()
-ggplot(data, aes(x = diff_to_prev, y = error, color = factor(real_target_position)))+geom_smooth()+gg_crosshair()
+```{r results='asis' }
+print(data[,.N, by = participant])
 ```
 
 ```{r}
-data_color[,.(bias_by_block=mean.nn(bias_to_distr_corr), by = .(participant, block, vviq))]
+#| fig-cap: Performance a function of cue validity
+#| label: fig-perf
+
+plot.pointrange(data, aes(x = cue_type, y = abs_err))
+```
+
+```{r}
+data[,real_target_positionf:=factor(real_target_position, levels = 1:3)]
+ggplot(data, aes(x = diff_to_next, y = error, color = real_target_positionf))+geom_smooth()+gg_crosshair()+scale_color_discrete(drop=F)+
+ggplot(data, aes(x = diff_to_prev, y = error, color = real_target_positionf))+geom_smooth()+gg_crosshair()+scale_color_discrete(drop=F)+
+  plot_layout(guides = 'collect')
 ```
