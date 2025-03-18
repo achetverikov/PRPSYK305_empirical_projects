@@ -34,7 +34,15 @@ jobs:
         with:
           to: html # If set, it will be equivalent to `quarto render --to html`
           path: . # By default, the current working dir is used i.e `quarto render .`
-        env: ${{ toJson(secrets) }}
+        env: 
+          GITHUB_TOKEN: ${{ secrets.github_token }}
+          JATOS_TOKEN: ${{ secrets.JATOS_TOKEN }}
+          JATOS_DECOY_STUDY_UID: ${{ secrets.JATOS_DECOY_STUDY_UID }}
+          JATOS_COLORS_AND_IMAGERY_STUDY_UID: ${{ secrets.JATOS_COLORS_AND_IMAGERY_STUDY_UID }}
+          JATOS_OBJ_STUDY_UID: ${{ secrets.JATOS_OBJ_STUDY_UID }}
+          JATOS_TOMATO_STUDY_UID: ${{ secrets.JATOS_TOMATO_STUDY_UID }}
+          JATOS_TEMP_ATT_STUDY_UID: ${{ secrets.JATOS_TEMP_ATT_STUDY_UID }}
+          JATOS_MONSTERS_STUDY_UID: ${{ secrets.JATOS_MONSTERS_STUDY_UID }}
           
       - name: Commit and Push Changes
         run: |
