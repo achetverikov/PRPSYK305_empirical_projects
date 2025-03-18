@@ -220,7 +220,7 @@ tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),  n_by_subj[1],
 tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean.nn(abs_err)), keyby = .(startDate, endDate,  subject_id)]
 ```
 
-```{r eval = F}
+```{r eval = T}
 
 #outliers 
 tomatoes<-tomatoes[subject_id%nin%tomatoes[,.(.N, circ_sd_360(error, na.rm = T)), by = subject_id][V2>60|N<200, subject_id]]
@@ -259,142 +259,7 @@ tomatoes[,abs_be_c:=abs(be_c)]
 tomatoes[,avg_abs_err:=mymean(abs(be_c)), by = subject_id]
 tomatoes[,noise_equal:=factor(distr_noise==target_noise, levels = c(F, T), labels = c('Unequal noise', 'Equal noise'))]
 tomatoes[,bias_distr:=NULL]
-saveRDS(tomatoes, 'data_color_fd_2r_debiased.rds')
-
-tomatoes <- readRDS('data_color_fd_2r_debiased.rds')
 tomatoes[,similarity_binf:=factor(similarity_bin)]
-names(tomatoes)
-ggplot(tomatoes[is_outlier==F,.(avg_err = mymean(abs(be_c)), avg_bias =mymean(bias_to_distr_corr)), by = .(subject_id, cue_n, similarity_bin,noise)], aes(x = avg_err, y = avg_bias, color = factor(similarity_bin), shape = factor(similarity_bin)))+geom_point()+geom_smooth(method = rlm)+facet_grid(cue_n~noise)
-
-# biases plot
-ggplot(tomatoes[is_outlier==F], aes(x = similarity_bin, y = bias_to_distr_corr, color = factor(target_noise)))+stat_summary(binwidth = 30, position = position_dodge(width = 0), show.legend = FALSE )+stat_summary(geom='line', binwidth = 30, position = position_dodge(width = 0))+facet_grid(noise_equal~cue_n)+theme(panel.grid.major.x = element_blank(),panel.grid.minor.x = element_blank())+geom_hline(yintercept = 0, linetype = 2)+scale_x_continuous(breaks = unique(tomatoes$similarity_bin))
 
 
-
-ggplot(tomatoes[is_outlier==F], aes(x = similarity_bin, y = bias_to_distr_corr, color = factor(target_noise)))+stat_summary(binwidth = 30, position = position_dodge(width = 0), show.legend = FALSE )+stat_summary(geom='line', binwidth = 30, position = position_dodge(width = 0))+facet_grid(distr_noise~cue_n)+theme(panel.grid.major.x = element_blank(),panel.grid.minor.x = element_blank())+geom_hline(yintercept = 0, linetype = 2)+scale_x_continuous(breaks = unique(tomatoes$similarity_bin))
-
-ggplot(tomatoes[is_outlier==F], aes(x = bias_to_distr_corr, fill = factor(cue_n)))+geom_density(alpha = 0.5)+theme(panel.grid.major.x = element_blank(),panel.grid.minor.x = element_blank())+geom_vline(aes(xintercept = similarity_bin), linetype = 2)+geom_vline(aes(xintercept = similarity_bin/2), linetype = 3)+facet_grid(~similarity_bin)+scale_x_continuous(breaks = c(0,unique(tomatoes$similarity_bin)))
-
-ggplot(tomatoes[is_outlier==F], aes(x = bias_to_distr_corr, y = factor(noise), fill = factor(similarity_bin)))+facet_grid(~cue_n)+geom_density_ridges(alpha = 0.5)+theme(panel.grid.major.x = element_blank(),panel.grid.minor.x = element_blank())+geom_vline(xintercept = 0, linetype = 2)
-
-
-err_dens <- lapply(split(tomatoes[is_outlier==F&!is.na(error),], by = c('subject'), drop = T), \(dt){ 
-  feat = 'color'
-  weights_bw <- ifelse(feat=='ori', 10, 20)
-  res <- dt[,density(bias_to_distr_corr, from = -180, to = 180, n = 181)[c('x','y')], by = .(expName, subject,  target_noise, distr_noise, noise, similarity_bin,noise_equal,cue_n)]
-  
-  res[,x_sign:=sign(x)]
-  res[,x_val:=abs(x)]
-  res[,y_log:=log(y)]
-  
-  res <- dcast(res, expName+subject+target_noise+distr_noise+noise_equal+similarity_bin+cue_n+x_val~x_sign, value.var ='y')
-  res[,delta:=`1`-`-1`]
-  res[,total := `1`+`-1`]
-  res[,ratio := `1`/`-1`]
-  
-
-# 
-#   res <- dcast(res,noise_equal+noise+ target_noise+distr_noise+cue_n+x_val+similarity_bin~x_sign, value.var = 'y')
-#   res[,delta:=`1`-`-1`]
-#   
-  res
-})
-err_dens<-rbindlist(err_dens)
-err_dens[,similarity_bin:=factor(similarity_bin)]
-err_dens_by_subj_aggr_fd <- err_dens[x_val!=0,.(bias = (sum(`1`)-sum(`-1`))/(sum(`-1`)+sum(`1`))), by = .(subject,  similarity_bin , noise_equal, expName, target_noise, distr_noise)]
-
-err_dens_by_subj_aggr_fd_cue <- err_dens[x_val!=0,.(bias = (sum(`1`)-sum(`-1`))/(sum(`-1`)+sum(`1`))), by = .(subject,  similarity_bin , noise_equal, expName, target_noise, distr_noise, cue_n)]
-
-ezANOVA(err_dens_by_subj_aggr_fd, within = c('similarity_bin','noise_equal', 'target_noise'), wid = subject, dv = 'bias', type = 3)
-ezANOVA(tomatoes[is_outlier==F], within = c('similarity_binf','noise_equal', 'target_noise'), wid = subject, dv = 'bias_to_distr_corr',type = 3)
-err_dens_by_subj_aggr_fd[,bias:=bias*100]
-err_dens_by_subj_aggr_fd_cue[,bias:=bias*100]
-err_dens_by_subj_aggr_fd_cue[,cue_lab:=factor(cue_n, labels = c('1st report', '2nd report'))]
-ezANOVA(err_dens_by_subj_aggr_fd_cue, within = c('similarity_bin','noise_equal','cue_lab', 'target_noise'), wid = subject, dv = 'bias', type = 3)
-p_fd <- plot.pointrange(err_dens_by_subj_aggr_fd_cue, aes(y = bias, x = similarity_bin, color = target_noise), withinvars =  c('noise_equal','cue_lab','similarity_bin','target_noise'), connecting_line = T, within_subj = T, x_as_numeric = T, wid = 'subject', pos = position_dodge(5))+facet_grid(noise_equal~cue_lab)+gg_crosshair(xint = NULL)+labs(y = 'Bias, %', x = 'Dissimilarity, deg.', color = 'Target noise')+scale_x_continuous(breaks = as.numeric(as.character(unique(err_dens_by_subj_aggr_fd$similarity_bin))))
-p_fd
-
-p_fd <- plot.pointrange(err_dens_by_subj_aggr_fd, aes(y = bias, x = similarity_bin, color = target_noise), withinvars =  c('noise_equal','similarity_bin','target_noise'), connecting_line = T, within_subj = T, x_as_numeric = T, wid = 'subject', pos = position_dodge(5))+facet_grid(noise_equal~.)+gg_crosshair(xint = NULL)+labs(y = 'Bias, %', x = 'Dissimilarity, deg.', color = 'Target noise')+scale_x_continuous(breaks = as.numeric(as.character(unique(err_dens_by_subj_aggr_fd$similarity_bin))))
-
-save_as_pptx(p_fd, fname = 'p_fd.pptx', plot_width = 8 ,plot_height = 5)
-
-plot.pointrange(err_dens_by_subj_aggr_fd, aes(y = bias, x = similarity_bin, color = target_noise), withinvars =  c('noise_equal'), connecting_line = T, within_subj = T, wid = 'subject', pos = position_dodge(5),x_as_numeric = T)+facet_grid(.~noise_equal)+gg_crosshair(xint = NULL)
-
-plot.pointrange(tomatoes[is_outlier==F], aes(y = bias_to_distr_corr, x = similarity_bin, color = target_noise), withinvars =  'noise_equal', connecting_line = T, within_subj = T, wid = 'subject', pos = position_dodge(5),x_as_numeric = T)+facet_grid(~noise_equal)+gg_crosshair(xint = NULL)
-plot.pointrange(tomatoes[is_outlier==F], aes(y = bias_to_distr_corr, x = similarity_bin, color = target_noise), withinvars =  'distr_noise', connecting_line = T, within_subj = T, wid = 'subject', pos = position_dodge(5),x_as_numeric = T)+facet_grid(~distr_noise)+gg_crosshair(xint = NULL)
-
-err_dens[total==0,ratio2:=1]
-err_dens[,log_ratio2:=sign(ratio2)*log(abs(ratio2))]
-err_dens[,delta_1000:=10^3]
-
-err_dens_by_error <- err_dens[!is.na(delta), get_superb_ci(.SD, within = c('target_noise','noise_equal'),value_var =  'delta_1000',  wid = 'subject', adjustments = list(purpose = "single", decorrelation = "CA")), by = .(x_val, similarity_bin)]
-err_dens_by_error_cue <- err_dens[!is.na(delta), get_superb_ci(.SD, within = c('target_noise','noise_equal','cue_n'),value_var =  'delta_1000',  wid = 'subject', adjustments = list(purpose = "single", decorrelation = "CA")), by = .(x_val, similarity_bin)]
-
-err_dens[!is.na(delta), describe.ezanova(ezANOVA(.SD, dv = .(delta), within = .(target_noise,noise_equal, cue_n),  wid = .(subject)), append_to_table = T), by = .(similarity_bin)]
-ez_by_x <- err_dens[!is.na(delta), suppressWarnings(describe.ezanova(ezANOVA(.SD, dv = .(delta), within = .(target_noise,noise_equal),  wid = .(subject)), append_to_table = T)), by = .(similarity_bin, x_val)]
-ez_by_x <- ez_by_x[Effect=='target_noise:noise_equal']
-ez_by_x[,group:=p<0.05]
-ez_by_x[,grp_id:=rleid(group), by = .(similarity_bin)]
-
-ez_by_x <- ez_by_x[p<0.05,.(min(x_val), max(x_val)), by = .(similarity_bin, grp_id)]
-
-p_err_dens_by_err <- ggplot(err_dens_by_error, aes(x = x_val, y = center, ymin = center+lowerwidth, ymax = center+upperwidth, color = target_noise, fill = target_noise))+
-  geom_hline(yintercept = 0, linetype = 2)+
-  geom_line()+geom_ribbon(alpha = 0.1, color = NA)+
-  facet_grid(noise_equal~similarity_bin)+
-  geom_rect(data = ez_by_x, aes(xmin = V1, xmax = V2, ymin = -Inf, ymax = Inf), inherit.aes = F, alpha = 0.05, fill = 'black', color = NA)+
-  scale_x_continuous(breaks = c(0,unique(as.numeric(as.character(tomatoes$similarity_bin)))))+
-  labs(x = 'Error, deg.', y = 'Asymmetry in error probability', color = 'Target noise', fill  = 'Target noise')+
-  geom_vline(aes(xintercept = as.numeric(as.character(similarity_bin))), linetype = 2)
-
-p_comb_fd <- (p_fd+p_err_dens_by_err+plot_layout(guides = 'collect', widths = c(1/4, 3/4)))&theme(text = element_text(size = 18))
-
-svglite('p_fix_dist.svg', width = 16.5, height = 7,   fix_text_size = F)
-p_comb_fd
-dev.off()
-
-save_as_pptx(p_comb_fd, fname = 'p_fix_dist.pptx', plot_height = 5.2, plot_width = 13 )
-
-ggplot(err_dens, aes(x = x_val, y = delta, color = factor(target_noise)))+geom_line(stat = 'summary', fun = mean)+facet_grid(noise_equal~similarity_bin)+scale_x_continuous(breaks = c(0,unique(as.numeric(as.character(tomatoes$similarity_bin)))))+labs(x = 'Error, deg.', y = 'Asymmetry in response probability')+geom_vline(aes(xintercept = as.numeric(as.character(similarity_bin))))
-
-
-plot.pointrange(data_comb[is_outlier==F], aes(x = noise_equal, y = bias_to_distr_corr, color = target_noise), wid = 'subject_exp', within_subj = T, betweenvars = 'expLabel')+facet_grid(~expLabel)
-
-data_color[,expName:='color_1, high var.']
-
-smooth_highlight_shuffle(tomatoes, 'color_2r_fd')
-
-
-ggplot(dcast(tomatoes[is_outlier==F], subject+user_session_id +block+trial_number+target_noise+distr_noise+noise+noise_equal~cue_n, value.var = 'bias_to_distr_corr'), aes(x = `1`, y = `2`))+geom_smooth(method = 'loess')+facet_grid(target_noise~distr_noise)
-
-data_color_2r_dc <- dcast(tomatoes[is_outlier==F], subject_id+subject_id+user_session_id+result_id+block+trial_number+similarity_bin~cue_n, value.var = c('target_noise','distr_noise','abs_err','abs_td_dist','be_c','bias_to_distr_corr'))
-
-ggplot(data_color_2r_dc[!is.na(target_noise_1)&!is.na(target_noise_2)], aes(x = bias_to_distr_corr_1, y = bias_to_distr_corr_2))+geom_smooth(method=lm)+facet_nested(target_noise_1~similarity_bin+target_noise_2, labeller = label_both)
-
-data_color_2r_dc[!is.na(target_noise_1)&!is.na(target_noise_2)][,describe.r(cor.test(~bias_to_distr_corr_1+bias_to_distr_corr_2)), keyby = .(similarity_bin, target_noise_1, target_noise_2)]
-
-data_color_2r_dc[,bias_to_distr_corr_1_sign:=sign(bias_to_distr_corr_1)]
-data_color_2r_dc[,bias_to_distr_corr_2_sign:=sign(bias_to_distr_corr_2)]
-data_color_2r_dc[!is.na(target_noise_1)&!is.na(target_noise_2)][,describe.r(cor.test(~bias_to_distr_corr_1+bias_to_distr_corr_2)), keyby = .(similarity_bin, target_noise_1, target_noise_2)]
-
-data_color_2r_dc[!is.na(target_noise_1)&!is.na(target_noise_2)][,describe.chi(table(bias_to_distr_corr_1_sign,bias_to_distr_corr_2_sign)), keyby = .(similarity_bin, target_noise_1, target_noise_2)]
-
-data_ori_2r_dc <- dcast(data_ori_2r[is_outlier==F], subject+date+practice_main_loop.thisRepN+main_trials.thisTrialN~cue_n, value.var = c('target_noise','distr_noise','abs_err','be_c','bias_to_distr2','abs_td_dist'))
-
-ggplot(data_ori_2r_dc[!is.na(target_noise_1)&!is.na(target_noise_2)&abs_td_dist_1%between%c(10, 40)], aes(x = bias_to_distr2_1, y = bias_to_distr2_2))+geom_point(alpha = 0.1)+geom_smooth(method=loess)+facet_grid(target_noise_1~target_noise_2)
-
-data_ori_2r_dc[!is.na(target_noise_1)&!is.na(target_noise_2)&abs_td_dist_1%between%c(15, 35)][,describe.r(cor.test(~bias_to_distr2_1+bias_to_distr2_2)), by = .(target_noise_1, target_noise_2)]
-
-data_comb$prev_rel_to_curr_targ
-data_comb[feature=='color', prev_rel_to_curr_targ:=angle_diff_360(target_color, shift(target_color)), by = .(subject_exp)]
-data_comb[,prev_targ_noise:=shift(target_noise), by = .(subject_exp)]
-
-data_comb[feature=='color', ser_dep:=sign(prev_rel_to_curr_targ)*be_c]
-data_comb[is.na(prev_targ_noise)&!is.na(ser_dep)]
-data_comb[feature=='color', target_color]
-ggplot(data_comb[is_outlier==F&!is.na(ser_dep)], aes(x = abs(prev_rel_to_curr_targ), y = ser_dep, color = target_noise))+geom_smooth(method = 'loess')+facet_nested(prev_targ_noise~expLabel+cue_n)
-
-avg_err_dens <-   tomatoes[is_outlier==F&!is.na(error),][,density(bias_to_distr_corr, from = -180, to = 180, n = 181)[c('x','y')], by = .(expName, subject,  target_noise, distr_noise, noise, noise_equal, similarity_bin,noise_equal,cue_n)]
-
-ggplot(avg_err_dens[,.(y = mean(y)), by = .(x, target_noise, noise_equal, similarity_bin)], aes(x = x, y = y,color = target_noise))+geom_line()+facet_nested(noise_equal~similarity_bin)+geom_vline(xintercept = 0)
 ```
