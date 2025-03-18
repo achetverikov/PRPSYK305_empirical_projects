@@ -30,10 +30,17 @@ jobs:
       - uses: r-lib/actions/setup-renv@v2
       
       - name: Render Quarto Project
-        uses: quarto-dev/quarto-actions/render@v2
-        with:
-          to: html # If set, it will be equivalent to `quarto render --to html`
-          path: . # By default, the current working dir is used i.e `quarto render .`
+        shell: bash
+        run: |
+          # Find all QMD files in the repository
+          find . -name "*.qmd" -type f | while read -r file; do
+            echo "Rendering $file"
+            quarto render "$file" --to html
+          done
+        # uses: quarto-dev/quarto-actions/render@v2
+        # with:
+        #   to: html # If set, it will be equivalent to `quarto render --to html`
+        #   path: . # By default, the current working dir is used i.e `quarto render .`
         env: 
           GITHUB_TOKEN: ${{ secrets.github_token }}
           JATOS_TOKEN: ${{ secrets.JATOS_TOKEN }}
