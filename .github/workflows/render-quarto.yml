@@ -30,24 +30,37 @@ jobs:
       - uses: r-lib/actions/setup-renv@v2
       
       - name: Render Quarto Project
-        uses: quarto-dev/quarto-actions/render@v2
-        with:
-          to: html # If set, it will be equivalent to `quarto render --to html`
-          path: decoy_choices/decoy_choices.qmd # By default, the current working dir is used i.e `quarto render .`
-        env:
+        shell: bash
+        run: |
+          # Find all QMD files in the repository
+          find . -name "*.qmd" -type f | while read -r file; do
+            echo "Rendering $file"
+            quarto render "$file" --to html
+          done
+        # uses: quarto-dev/quarto-actions/render@v2
+        # with:
+        #   to: html # If set, it will be equivalent to `quarto render --to html`
+        #   path: . # By default, the current working dir is used i.e `quarto render .`
+        env: 
+          GITHUB_TOKEN: ${{ secrets.github_token }}
           JATOS_TOKEN: ${{ secrets.JATOS_TOKEN }}
-          JATOS_DECOY_STUDY_UID:  ${{ secrets.JATOS_DECOY_STUDY_UID }}
+          JATOS_DECOY_STUDY_UID: ${{ secrets.JATOS_DECOY_STUDY_UID }}
+          JATOS_COLORS_AND_IMAGERY_STUDY_UID: ${{ secrets.JATOS_COLORS_AND_IMAGERY_STUDY_UID }}
+          JATOS_OBJ_STUDY_UID: ${{ secrets.JATOS_OBJ_STUDY_UID }}
+          JATOS_TOMATO_STUDY_UID: ${{ secrets.JATOS_TOMATO_STUDY_UID }}
+          JATOS_TEMP_ATT_STUDY_UID: ${{ secrets.JATOS_TEMP_ATT_STUDY_UID }}
+          JATOS_MONSTERS_STUDY_UID: ${{ secrets.JATOS_MONSTERS_STUDY_UID }}
           
       - name: Commit and Push Changes
         run: |
           git config --local user.name "$GITHUB_ACTOR"
           git config --local user.email "$GITHUB_ACTOR@users.noreply.github.com"
       
-          # Add all files starting with 'decoy'
-          git add decoy_choices/decoy*
+          # Add all files
+          git add *
       
           # Commit changes if there are any
-          git commit -m 'Updated decoy files' || echo "No changes to commit"
+          git commit -m 'Rendered markdown files' || echo "No changes to commit"
       
           # Push changes
           git push origin || echo "No changes to commit"
