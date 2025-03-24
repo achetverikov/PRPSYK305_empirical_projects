@@ -173,4 +173,9 @@ progress_plot <- ggplot(title_code_matching, aes(y = reorder(short_title, N))) +
 
 # Display the plot
 print(progress_plot)
+
+dpi <- 320
+ragg::agg_png('overall_progress.png', width = 6*dpi, height = 5*dpi, res = dpi)
+progress_plot
+dev.off()
 ```
