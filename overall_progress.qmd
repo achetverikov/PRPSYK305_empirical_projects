@@ -31,10 +31,9 @@ library(apastats)
 library(data.table)
 library(jsonlite)
 library(stringr)
+library(ggplot2)
 library(knitr)
 library(Hmisc)
-library(superb)
-library(circhelp)
 
 default_font = 'Gill Sans Nova Light'
 
@@ -95,6 +94,7 @@ gg_crosshair <- function(xint = 0, yint = 0, lty = 2) {
 ```
 
 ```{r}
+library(httr)
 headers = c(
   `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
 )
@@ -113,13 +113,15 @@ study_uids <- study_uids[grepl('JATOS.*STUDY_UID',names(study_uids))]
 temp_dir <- tempdir(check = T)
 temp_dir <- gsub('\\\\', '/', temp_dir)
 temp_dir <- paste(temp_dir, randstring(1), sep = '/')
-res_file <- paste0(tempfile(),'.zip')
+res_file <- paste0(tempfile(),'.txt')
+
+study_uid <- study_uids[1]
 
 res <- lapply(study_uids, \(study_uid) {
-  url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
-  system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
-  unzip(res_file, exdir=temp_dir)  # unzip your file
-  metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
+  req_url <-  sprintf("%sresults/metadata?studyUuid=%s", jatos_url, study_uid)
+  system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
+  
+  metadata <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
   setDT(metadata)
   unlink(paste0(temp_dir, "/*"))
   metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
@@ -162,7 +164,6 @@ total_participants <- 48
 title_code_matching$completion_percentage <- round((title_code_matching$N / total_participants) * 100, 1)
 
 # Create a bar plot showing progress of each study
-library(ggplot2)
 
 # Shorten study names for better display
 title_code_matching$short_title <- c(
@@ -192,7 +193,7 @@ progress_plot <- ggplot(title_code_matching, aes(y = reorder(short_title, N))) +
   coord_cartesian(xlim = c(0, total_participants)) # Add more space for the labels on right side
 
 # Display the plot
-print(progress_plot)
+progress_plot
 
 # dpi <- 320
 # ragg::agg_png('overall_progress.png', width = 6*dpi, height = 5*dpi, res = dpi)
