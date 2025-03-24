@@ -1,9 +1,29 @@
 ---
 title: "Overall progress"
-format: html
-editor: visual
+knitr:
+  opts_chunk: 
+    echo: false
+    message: false
+    warning: false
+    comment: NA
+    cache: false
+    fig.width: 7
+    fig.asp: 0.5
+    fig.path: "figures/"
+    dpi: 320
+    external: false
+    res: 320
+    results: "hide"
+    out.width: 100%
+    split: false 
+    tidy: false
+    dev: svg
 editor_options: 
   chunk_output_type: console
+format: 
+  html: 
+    embed-resources: true
+
 ---
 ```{r setup}
 library(httr)
@@ -174,8 +194,8 @@ progress_plot <- ggplot(title_code_matching, aes(y = reorder(short_title, N))) +
 # Display the plot
 print(progress_plot)
 
-dpi <- 320
-ragg::agg_png('overall_progress.png', width = 6*dpi, height = 5*dpi, res = dpi)
-progress_plot
-dev.off()
+# dpi <- 320
+# ragg::agg_png('overall_progress.png', width = 6*dpi, height = 5*dpi, res = dpi)
+# progress_plot
+# dev.off()
 ```
