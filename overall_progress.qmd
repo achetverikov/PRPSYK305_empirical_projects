@@ -1,0 +1,176 @@
+---
+title: "Overall progress"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+```{r setup}
+library(httr)
+library(apastats)
+library(data.table)
+library(jsonlite)
+library(stringr)
+library(knitr)
+library(Hmisc)
+library(superb)
+library(circhelp)
+
+default_font = 'Gill Sans Nova Light'
+
+default_font_size <- 10
+default_line_size <- 1/.pt/3.82*4 
+default_font_size_mm <- default_font_size/ggplot2:::.pt
+
+default_point_size <- 4*default_line_size
+
+update_geom_defaults("line", list(linewidth = default_line_size))
+update_geom_defaults("text", list(size = default_font_size_mm, family = default_font))
+update_geom_defaults("segment", list(linewidth = default_line_size))
+update_geom_defaults("pointrange", list(linewidth = default_line_size))
+update_geom_defaults("vline", list(linewidth = default_line_size, colour = '#AFABAB'))
+update_geom_defaults("hline", list(linewidth = default_line_size, colour = '#AFABAB'))
+update_geom_defaults('function', list(linewidth = default_line_size))
+
+default_theme<-theme_light(base_size = default_font_size, base_line_size = default_line_size, base_family = default_font)+theme(
+  axis.line=element_line(linewidth = I(0.5)), 
+  axis.ticks= element_line(linewidth = I(0.25), colour = 'gray'),
+  axis.line.x=element_line(),
+  axis.line.y=element_line(),
+  panel.grid.major = element_blank(), 
+  panel.grid.minor = element_blank(),
+  legend.title=element_text(size=rel(1)), 
+  strip.text=element_text(size=rel(1), colour = 'black'), 
+  axis.text=element_text(size=rel(0.9), colour = '#4e4e4e'), 
+  axis.title=element_text(size=rel(1), colour = '#4e4e4e'), 
+  panel.border= element_blank(),
+  strip.background = element_blank(),
+  legend.position	='right', 
+  legend.key.height = unit(0.7, 'lines'),
+  plot.title=element_text(size=rel(1), hjust = 0.5),
+  plot.tag.position = c(0,1),
+  plot.background = element_blank(),
+  text=element_text(size=default_font_size), 
+  legend.text=element_text(size=rel(1)), 
+  axis.line.x.bottom = element_blank(), 
+  axis.line.y.left = element_blank(),
+  axis.line.x.top = element_blank(),
+  axis.line.y.right = element_blank())
+theme_set(default_theme)
+
+default_colors <-c('#3498db','#009f06','#FF7F00', '#7A378B','#f72034')
+scale_colour_discrete <- function(...) scale_colour_manual(values=default_colors, ...)
+scale_fill_discrete <- function(...) scale_fill_manual(values=default_colors, ...)
+scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22), ...)
+
+
+gg_crosshair <- function(xint = 0, yint = 0, lty = 2) {
+  if (!is.null(xint)) gv = geom_vline(xintercept = xint, linetype = lty)
+  else gv = NULL
+  if (!is.null(yint)) gh = geom_hline(yintercept = yint, linetype = lty)
+  else gh = NULL
+  
+  list(gv, gh)
+}
+```
+
+```{r}
+headers = c(
+  `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
+)
+
+jatos_url <- 'https://jatos.mindprobe.eu/jatos/api/v1/'
+
+randstring <- function(n = 5000) {
+  a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
+  paste0(a, sprintf("%04d", sample(9999, n, TRUE)), sample(LETTERS, n, TRUE))
+}
+
+data_list <- list()
+study_uids <- Sys.getenv()
+study_uids <- study_uids[grepl('JATOS.*STUDY_UID',names(study_uids))]
+
+temp_dir <- tempdir(check = T)
+temp_dir <- gsub('\\\\', '/', temp_dir)
+temp_dir <- paste(temp_dir, randstring(1), sep = '/')
+res_file <- paste0(tempfile(),'.zip')
+
+res <- lapply(study_uids, \(study_uid) {
+  url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
+  system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
+  unzip(res_file, exdir=temp_dir)  # unzip your file
+  metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
+  setDT(metadata)
+  unlink(paste0(temp_dir, "/*"))
+  metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
+  
+  })
+
+
+res <- rbindlist(res, idcol = 'study_name', fill = T)
+
+title_code_matching <- data.frame(
+  title = c(
+    "Visual Imagery: Imagery and biases in VWM",
+    "Attention: Temporal attention",
+    "High-level decision-making: Decoy effect with explicit bets vs their graphical representations",
+    "Summary statistics: subset averaging",
+    "Objects in long-term memory",
+    "Automaticity and expectations"
+  ),
+  study_name = c(
+    "JATOS_COLORS_AND_IMAGERY_STUDY_UID",
+    "JATOS_TEMP_ATT_STUDY_UID",
+    "JATOS_DECOY_STUDY_UID",
+    "JATOS_TOMATO_STUDY_UID",
+    "JATOS_OBJECTS_STUDY_UID",
+    "JATOS_MONSTERS_STUDY_UID"
+  )
+  )
+
+title_code_matching <- merge(res[,.N, by = study_name], title_code_matching, by = c('study_name'))
+
+
+```
+
+```{r}
+
+# Set total target participants
+total_participants <- 48
+
+# Calculate completion percentage for each study
+title_code_matching$completion_percentage <- round((title_code_matching$N / total_participants) * 100, 1)
+
+# Create a bar plot showing progress of each study
+library(ggplot2)
+
+# Shorten study names for better display
+title_code_matching$short_title <- c(
+  "Visual Imagery",
+  "Temporal Attention",
+  "Decoy Effect",
+  "Subset Averaging",
+  "Objects in LTM",
+  "Automaticity"
+)
+
+# Create the progress bar plot
+progress_plot <- ggplot(title_code_matching, aes(y = reorder(short_title, N))) +
+  geom_bar(aes(x = total_participants), fill = NA, color = "darkgray", stat = "identity", width = 0.7) +
+  geom_bar(aes(x = N, fill = completion_percentage), stat = "identity", width = 0.7) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Completion %") +
+  geom_text(aes(x = N, label = paste0(N, " (", completion_percentage, "%)")), 
+            hjust = -0.1, color = "black", size = 3.5) +
+  labs(title = "Study Progress: Current vs. Target Participants",
+       subtitle = paste0("Target: ", total_participants, " participants per study"),
+       y = "Study", 
+       x = "Number of Participants") +
+
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.ticks.y = element_blank()) +
+  coord_cartesian(xlim = c(0, total_participants)) # Add more space for the labels on right side
+
+# Display the plot
+print(progress_plot)
+```
