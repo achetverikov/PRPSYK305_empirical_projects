@@ -190,7 +190,6 @@ tomatoes[, realTargetColor:=angle_diff_360(ifelse(cue_n==3,
          by = .(target_color, distr_color)]
 tomatoes[,realErr:=angle_diff_360(resp_color, realTargetColor)]
 tomatoes[,abs_err:=abs(error)]
-
 tomatoes[cue_pos!=target_x, c('target_noise','distr_noise'):=.(distr_noise, target_noise)]
 tomatoes[cue_pos!=target_x, c('target_color','distr_color'):=.(distr_color, target_color)]
 tomatoes[,target_noise:=factor(target_noise, levels = c(5, 20), labels = c('low','high'))]
@@ -213,8 +212,6 @@ tomatoes[,noise:=interaction(target_noise, distr_noise, sep = ' - ')]
 tomatoes<-tomatoes[n_by_subj>350&block>0]
 
 aggr_stats <- tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id)]
-tomatoes <- tomatoes[subject_id%nin%aggr_stats[circ_sd>60, subject_id]]
-tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),  n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id, cue_n)]
 ```
 
 ```{r results='show'}
@@ -226,13 +223,6 @@ tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean.nn(a
 #outliers 
 tomatoes<-tomatoes[subject_id%nin%tomatoes[,.(.N, circ_sd_360(error, na.rm = T)), by = subject_id][V2>60|N<200, subject_id]]
 tomatoes[,task_type:=ifelse(cue_n==3,'averaging','single item')]
-plot.pointrange(tomatoes[!is.na(abs_err)],
-                aes(x = noise, y = abs_err, color = task_type), 
-                within_subj = T, wid ='subject_id', withinvars = c('task_type','noise'), do_aggregate = F)
-
-plot.pointrange(tomatoes, aes(x = noise, y = abs_err, color = noise), 
-                within_subj = T, wid ='subject_id', withinvars = c('cue_n','noise'))+
-  facet_grid(.~cue_n)
 
 ```
 
@@ -251,16 +241,24 @@ tomatoes <-rbindlist(db_res)
 ```
 ```{r}
 tomatoes[is_outlier==F&abs_err>90, is_outlier:=T]
-tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(error, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mymean(is_outlier), mean_abs_err= mymean(abs_err)), keyby = .(subject_id)]
+tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean.nn(is_outlier), mean_abs_err= mean.nn(abs_err)), keyby = .(subject_id,task_type)]
 
 tomatoes[,bias_to_distr_corr:=sign(td_dist)*be_c]
 tomatoes[,bias_to_distr_raw:=sign(td_dist)*error]
 
 tomatoes[,abs_be_c:=abs(be_c)]
-tomatoes[,avg_abs_err:=mymean(abs(be_c)), by = subject_id]
+tomatoes[,avg_abs_err:=mean.nn(abs(be_c)), by = subject_id]
 tomatoes[,noise_equal:=factor(distr_noise==target_noise, levels = c(F, T), labels = c('Unequal noise', 'Equal noise'))]
 tomatoes[,bias_distr:=NULL]
 tomatoes[,similarity_binf:=factor(similarity_bin)]
+
+plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
+                aes(x = noise, y = abs_be_c, color = task_type), 
+                within_subj = T, wid ='subject_id', withinvars = c('task_type','noise'), do_aggregate = F)
+
+plot.pointrange(tomatoes, aes(x = noise, y = abs_err, color = noise), 
+                within_subj = T, wid ='subject_id', withinvars = c('cue_n','noise'))+
+  facet_grid(.~cue_n)
 
 
 ```
