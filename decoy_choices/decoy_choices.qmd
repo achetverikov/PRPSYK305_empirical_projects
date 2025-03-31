@@ -1,5 +1,5 @@
 ---
-title: Choices in a decoy task
+title: Choices in a decoy task 
 knitr:
   opts_chunk: 
     echo: false
@@ -170,11 +170,7 @@ data_out <- datam[stim_chosen==1, .(participant,trial_counter,condition,target_t
 fwrite(data_out, 'decoy.csv')
 ```
 
-```{r results='show'}
-data[,.N, keyby = participant]
-```
-
-# Instructions
+## Instructions
 
 Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `decoy.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
 
@@ -188,7 +184,48 @@ Read the report below and use it as a basis for your presentation. You can also 
 * `correct` - whether the response was correct
 * `rt` - time (in seconds) required for the response
 
-# Descriptive statistics
+
+## Method
+
+### Participants
+Participants were recruited to take part in an online experiment. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected in the experimental script, but participants were assigned unique identifiers (PID, study ID, and session ID) to track their data.
+
+### Apparatus and Stimuli
+The experiment was programmed using jsPsych 7.3.4 (de Leeuw, 2015) with the psychophysics plugin (version 3.7.0). Stimuli consisted of red and blue rectangular bars displayed on a dark gray background (#424242). The bars represented two attributes of consumer products (TVs): price and quality. The fullness of each bar indicated the value of that attribute, with fuller bars representing higher quality or lower price. 
+
+In the "numeric" condition, explicit pricing information (ranging from $200 to $5000) and quality ratings (from 2.0 to 5.0 stars) were displayed alongside the bars. In the "perceptual" condition, only the bars were shown without the numeric values. Products were positioned in a triangular arrangement, equidistant from the center of the screen (200 pixels radius).
+
+### Design
+The experiment closely followed the design of Spektor et al. (2022, Cognition), who investigated the role of metacognition in the decoy effect. It employed a fully factorial within-subjects design with the following factors:
+- Condition (perceptual, numeric): whether explicit numeric values were shown
+- Correct option (NH, WL): narrow & high vs. wide & low option as the target
+- Set type (H, W): which parameter of the competitor option was adjusted
+- Decoy type (stronger, weaker, both): on which dimension the decoy was reduced compared to the target
+- Target-to-competitor difference (0.03, 0.1): how much worse the competitor was relative to the target
+- Decoy reduction (0.05, 0.2): how much worse the decoy was
+- Decoy placement (target, competitor): whether the decoy was asymmetrically dominated by the target or the competitor
+
+This resulted in a total of 192 unique trial types (2×2×2×3×2×2×2), with each participant experiencing all conditions exactly once. The experiment consisted of 192 trials divided into 12 blocks of 16 trials each.
+
+Which attribute (price or quality) was represented by which color (red or blue) was counterbalanced across participants, with assignment determined randomly at the beginning of the experiment.
+
+### Procedure
+The experiment began with an instruction screen explaining the task and showing example stimuli. Participants were instructed to select the best option in terms of both price and quality, with fuller bars indicating better values (higher quality and lower price).
+
+On each trial, three options were presented simultaneously. Participants indicated their choice by pressing the corresponding number key (1, 2, or 3). They had a maximum of 20 seconds to respond. If no response was recorded within the time limit, a "Too late!" message appeared encouraging faster responses.
+
+The experiment was divided into blocks of 16 trials, with short breaks between blocks. During these breaks, participants received feedback on their performance, visualized as TVs they had "taken home" (correct choices) versus "missed" (incorrect choices). After completing all trials, a final performance summary was displayed before concluding the experiment.
+
+### Data Collection
+The experiment recorded the following data for each trial:
+- Trial parameters (condition, correct option, set type, decoy type, target-to-competitor difference, decoy reduction, decoy placement)
+- Participant response (1, 2, or 3)
+- Response accuracy (whether the participant selected the target option)
+- Response time
+- Positions and values of all options presented
+
+
+## Descriptive statistics
 
 ```{r descr_stats}
 data_descr <- data_out[,.(.N, mean_RT = mean(rt)), keyby = .(participant, chosen_item)][,.(chosen_item, prop_choices = 100*N/sum(N), mean_RT), by = participant]
@@ -197,7 +234,7 @@ data_descr <- data_out[,.(.N, mean_RT = mean(rt)), keyby = .(participant, chosen
 The study has `r data_out[,apastats:::numbers2words(lengthu(participant))]` participants.
 On average, participants chose `r data_descr[,describe.mean.conf(prop_choices), by = .(chosen_item)][,paste_and(sprintf('%ss in %s', chosen_item, V1))]`% of trials (here and later the confidence intervals are reported in square brackets after the means). Response times were `r data_descr[,describe.mean.conf(mean_RT), by = .(chosen_item)][,paste_and(V1)]`, respectively. 
 
-# Do decoys influence choices differently under different conditions?
+## Do decoys influence choices differently under different conditions?
 
 ```{r}
 #| fig-cap: Response count as a function of condition and decoy type.
@@ -217,7 +254,7 @@ res <- ez::ezANOVA(data_out, dv = 'correct', within = c('condition','decoy_on'),
 plot.pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w', within_subj =  T)+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
 ```
 
-The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable. The results are provided below:
+The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable (@fig-accuracy). The results are provided below:
 
 * the effect of condition `r describe.ezanova(res, 'condition')`
 * the effect of decoy type `r describe.ezanova(res, 'decoy_on')`
@@ -234,7 +271,7 @@ res_rt <- ez::ezANOVA(data_out, dv = 'rt', within = c('condition','decoy_on'), w
 plot.pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'participant', design = 'w', within_subj = T)+labs(y = 'Response time, s', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
 ```
 
-The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable. The results are provided below:
+Lastly, we analyzed the response times again using a within-subject ANOVA (@fig-rt). The results are provided below:
 
 * the effect of condition `r describe.ezanova(res_rt, 'condition')`
 * the effect of decoy type `r describe.ezanova(res_rt, 'decoy_on')`

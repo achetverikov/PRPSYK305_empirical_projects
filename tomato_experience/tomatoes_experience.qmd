@@ -212,7 +212,8 @@ tomatoes[,similarity_binf:=factor(similarity_bin)]
 tomatoes[,noise:=interaction(target_noise, distr_noise, sep = ' - ')]
 tomatoes<-tomatoes[n_by_subj>350&block>0]
 
-tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id)]
+aggr_stats <- tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id)]
+tomatoes <- tomatoes[subject_id%nin%aggr_stats[circ_sd>60, subject_id]]
 tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),  n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id, cue_n)]
 ```
 
