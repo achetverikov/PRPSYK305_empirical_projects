@@ -145,13 +145,13 @@ title_code_matching <- data.frame(
     "JATOS_TEMP_ATT_STUDY_UID",
     "JATOS_DECOY_STUDY_UID",
     "JATOS_TOMATO_STUDY_UID",
-    "JATOS_OBJECTS_STUDY_UID",
+    "JATOS_OBJ_STUDY_UID",
     "JATOS_MONSTERS_STUDY_UID"
   )
   )
 
 title_code_matching <- merge(res[,.N, by = study_name], title_code_matching, by = c('study_name'))
-
+message(str(title_code_matching))
 
 ```
 
