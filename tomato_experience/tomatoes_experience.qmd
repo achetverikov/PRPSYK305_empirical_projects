@@ -36,6 +36,7 @@ library(jsonlite)
 library(stringr)
 library(knitr)
 library(Hmisc)
+library(ez)
 library(superb)
 
 default_font = 'Gill Sans Nova Light'
@@ -101,14 +102,23 @@ randstring <- function(n = 5000) {
   a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
   paste0(a, sprintf("%04d", sample(9999, n, TRUE)), sample(LETTERS, n, TRUE))
 }
-data_list <- list()
-study_uid_list <- Sys.getenv('JATOS_TOMATO_STUDY_UID')
 
-for (study_uid in study_uid_list){
-  temp_dir <- tempdir(check = T)
-  temp_dir <- gsub('\\\\', '/', temp_dir)
-  temp_dir <- paste(temp_dir, randstring(1), sep = '/')
-  res_file <- paste0(tempfile(),'.zip')
+
+temp_dir <- tempdir(check = T)
+temp_dir <- gsub('\\\\', '/', temp_dir)
+temp_dir <- paste(temp_dir, randstring(1), sep = '/')
+res_file <- paste0(tempfile(),'.zip')
+
+study_uid <- Sys.getenv('JATOS_TOMATO_STUDY_UID')
+
+req_url <-  sprintf("%sresults/metadata?studyUuid=%s", jatos_url, study_uid)
+system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
+
+metadata <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
+setDT(metadata)
+unlink(paste0(temp_dir, "/*"))
+finished_study <- metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
+
   url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
   system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
   unzip(res_file, exdir=temp_dir)  # unzip your file
@@ -144,17 +154,19 @@ for (study_uid in study_uid_list){
     if ('score' %nin% colnames(data)){
       return(data.frame())
     }
-    if ('cue_n' %nin% colnames(data)){
+
       km <- kmeans(as.matrix(data[!is.na(click_x),.(click_x,click_y)]), 3, nstart = 50)
       sorted_indices <- order(km$centers[, 1])  # Assuming x-coordinate is in the first column
       sorted_indices[2:3] <- rev(sorted_indices[2:3])
        
       # Reassign cluster labels based on sorted order
       new_clusters <- match(km$cluster, sorted_indices)
-      data[!is.na(click_x), cue_n:=new_clusters]
-      data[, cue_pos:=ifelse(cue_n==1, 'left', ifelse(cue_n==2, 'right', 'avg'))]
+      data[!is.na(click_x), cue_n_alt:=new_clusters]
+      # data[, cue_pos:=ifelse(cue_n==1, 'left', ifelse(cue_n==2, 'right', 'avg'))]
       
-    }
+    if ('cue_n' %nin% names(data)){
+      data[,cue_n:=cue_n_alt]
+    } 
     data[,score:=as.numeric(score)]
     data[!is.na(left_colors), left_sd:=circ_sd_360(as.numeric(str_split(left_colors,',', simplify = T))), by = left_colors]
     data[!is.na(right_colors), right_sd:=circ_sd_360(as.numeric(str_split(right_colors,',', simplify = T))), by = right_colors]
@@ -170,15 +182,15 @@ for (study_uid in study_uid_list){
     # data[, error:=angle_diff_360(resp_color, target_color)]
     data[,subject_id:=str_extract(x, 'study_result_(\\d+)', group = 1)]
     data[,result_id:=str_extract(x, 'comp-result_(\\d+)', group = 1)]
-    data <- merge(data, finished_study_ids, by.x = 'subject_id', by.y = 'id')
+    data <- merge(data, finished_study_ids, by.x = 'subject_id', by.y = 'id', all.x = T)
     
     data
     
   }), fill = T)
 
-  data_list <- append(data_list, list(cur_data))
-}
-tomatoes <- rbindlist(data_list, fill = T)
+  
+
+tomatoes <- cur_data
 tomatoes[,expName:='color_2, fixed dist.']
 setnames(tomatoes,c('target_sd','distr_sd'), c('target_noise','distr_noise'), skip_absent = T)
 
@@ -209,39 +221,37 @@ tomatoes[, abs_td_dist:=abs(td_dist)]
 tomatoes[,target_color:=angle_diff_360(target_color, 0)]
 tomatoes[,similarity_binf:=factor(similarity_bin)]
 tomatoes[,noise:=interaction(target_noise, distr_noise, sep = ' - ')]
-tomatoes<-tomatoes[n_by_subj>350&block>0]
+tomatoes<-tomatoes[n_by_subj>300&block>0]
 
-aggr_stats <- tomatoes[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id)]
+aggr_stats <- tomatoes[,.(totalN = .N, non_missing=n_by_subj[1], circ_sd = circ_sd_360(error, na.rm = T),n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id)]
 ```
 
-```{r results='show'}
+```{r results='hide'}
 tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean.nn(abs_err)), keyby = .(startDate, endDate,  subject_id)]
 ```
 
 ```{r eval = T}
 
 #outliers 
-tomatoes<-tomatoes[subject_id%nin%tomatoes[,.(.N, circ_sd_360(error, na.rm = T)), by = subject_id][V2>60|N<200, subject_id]]
+tomatoes <- tomatoes[subject_id%nin%tomatoes[,.(.N, circ_sd_360(error, na.rm = T)), by = subject_id][V2>60|N<200, subject_id]]
 tomatoes[,task_type:=ifelse(cue_n==3,'averaging','single item')]
 
-```
-
-```{r}
 tomatoes[,subject:=paste0('S',as.numeric(as.factor(subject_id)))]
 tomatoes[,subject:=naturalsort::naturalfactor(subject)]
 
 tomatoes[,.(.N, circ_sd_360(error, na.rm = T)), by = subject_id]
 db_res <- lapply(split(tomatoes[!is.na(error),], by = c('subject_id', 'task_type')), \(dt){
-  dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist'):=remove_cardinal_biases(error, target_color, space = '360', plots = 'hide')[,c('be_c','is_outlier','pred','which_bin','shifted_x')], by = .(subject_id, task_type)]
+  dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist'):=remove_cardinal_biases(error, realTargetColor, space = '360', plots = 'hide')[,c('be_c','is_outlier','pred','which_bin','shifted_x')], by = .(subject_id, task_type)]
   dt
 })
 
 tomatoes <-rbindlist(db_res)
-
+tomatoes <- tomatoes[!is.na(abs_err)&is_outlier==F]
 ```
+
 ```{r}
 tomatoes[is_outlier==F&abs_err>90, is_outlier:=T]
-tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean.nn(is_outlier), mean_abs_err= mean.nn(abs_err)), keyby = .(subject_id,task_type)]
+# tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean.nn(is_outlier), mean_abs_err= mean.nn(abs_err)), keyby = .(subject_id,task_type)][,mean.nn(share_outliers), by = task_type]
 
 tomatoes[,bias_to_distr_corr:=sign(td_dist)*be_c]
 tomatoes[,bias_to_distr_raw:=sign(td_dist)*error]
@@ -252,13 +262,130 @@ tomatoes[,noise_equal:=factor(distr_noise==target_noise, levels = c(F, T), label
 tomatoes[,bias_distr:=NULL]
 tomatoes[,similarity_binf:=factor(similarity_bin)]
 
-plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
-                aes(x = noise, y = abs_be_c, color = task_type), 
-                within_subj = T, wid ='subject_id', withinvars = c('task_type','noise'), do_aggregate = F)
+```
 
-plot.pointrange(tomatoes, aes(x = noise, y = abs_err, color = noise), 
-                within_subj = T, wid ='subject_id', withinvars = c('cue_n','noise'))+
-  facet_grid(.~cue_n)
+# Methods
+
+## Participants
+`r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]-tomatoes[,lengthu(subject_id)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
+
+## Apparatus, Stimuli, and Procedure
+The experiment was conducted using a web-based platform built with jsPsych (version 7.3.2). Stimuli were presented on participants' personal displays with a minimum required resolution of 1000 × 600 pixels, verified via browser-check.
+
+Participants performed a color estimation task framed as quality control at a "magical tomato factory." On each trial, participants first viewed a central fixation circle (radius = 20 pixels) for 1000 ms. Subsequently, two 8 × 8 color patch stimuli (64 patches per stimulus) appeared simultaneously on the left and right sides of the screen for 1500 ms. Each stimulus measured 256 × 256 pixels, with individual patches sized at 32 × 32 pixels. Each stimulus contained patches with colors sampled from a normal distribution with a specified mean and standard deviation (either 5° or 20° in OKLCH color space). All colors were presented at a constant luminance (L = 50%) and chroma (C = 0.1), with only the hue parameter varying according to the experimental conditions. These color patches represented samples from two tomatoes.
+
+The mean hue of the target was selected randomly to ensure coverage across the full 360° color space. The mean hue of the distractor was determined by the similarity bin factor, with the distractor mean set at either 20°, 45°, or 135° (±3°) away from the target mean, with the direction (clockwise or counterclockwise) determined randomly.
+
+After a 500 ms memory delay, a response cue appeared for 500 ms, indicating which color the participant should report: the left tomato, right tomato, or the average color of both tomatoes. A color wheel (radius = 120 pixels, thickness = 20% of radius) then appeared around the corresponding tomato image(s). Participants selected a color by clicking on the wheel, with response time limited to 10 seconds per trial.
+
+In the training phase (10 trials), participants received extended feedback showing both their selected color and the correct target color. Stimulus presentation times gradually decreased during training. In the test phase, only a numerical score indicated performance accuracy without revealing the correct color.
+
+The experiment had a within-subjects factorial design with the following factors: target position (2 levels: left or right), target standard deviation (2 levels: 5° or 20°), distractor standard deviation (2 levels: 5° or 20°), similarity between target and distractor colors (3 levels: 20°, 45°, or 135°), and task type (2 levels: averaging task or single-item report task). The relative frequency distribution was structured such that participants performed the averaging task (reporting the average color of both stimuli) in 60% of trials and the single-item report task (reporting the color of either the right or left stimulus) in the remaining 40% of trials. For the single-item report task, the target was equally likely to appear on the left or right side. This distribution ensured greater emphasis on the averaging task compared to the single-item report task. The full factorial design with this distribution generated 360 unique experimental conditions, all of which were administered to each participant in the test phase. A mandatory rest period was provided at the midpoint of the experiment (after 50% of trials were completed) to mitigate potential fatigue effects.
+
+# Results
+
+
+Here's the revised code with the figure caption within the chunk and other requested changes:
+
+```{r}
+#| fig-cap: "Mean absolute error in color reporting as a function of similarity bin and task type. Error bars represent within-subject 95% confidence intervals."
+#| label: fig-color-error
+
+# Create the plot with proper axis labels
+plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
+                aes(x = similarity_bin, y = abs_be_c, color = task_type), 
+                within_subj = TRUE, 
+                wid = 'subject_id', 
+                withinvars = c('task_type','similarity_bin')
+                ) +
+  labs(x = "Similarity Bin (degrees)", 
+       y = "Absolute Error (degrees)",
+       color = "Task Type") 
+
+# Run ANOVA
+abs_error_anova <- ezANOVA(
+  data = tomatoes[!is.na(abs_err)&is_outlier==F],
+  dv = .(abs_be_c),
+  wid = .(subject_id),
+  within = .(task_type, similarity_binf),
+  detailed = TRUE,
+  type = 3
+)
+
 
 
 ```
+
+The repeated-measures ANOVA revealed an effect of the task type `r describe.ezanova(abs_error_anova, "task_type")` with participants performing better in the single-item report task compared to the averaging task. We also found an effect of the similarity bin `r describe.ezanova(abs_error_anova, "similarity_binf")`, indicating that participants' performance was affected by the similarity between target and distractor colors. The interaction effect was not significant, `r describe.ezanova(abs_error_anova, "task_type:similarity_bin")`.
+
+
+```{r}
+#| fig-cap: "Bias in reported color relative to target color in the averaging task as a function of similarity bin and noise level. Positive values indicate bias toward the distractor. Error bars represent within-subject 95% confidence intervals."
+#| label: fig-bias-analysis
+
+# Calculate bias relative to target for averaging task
+tomatoes[!is.na(abs_err) & task_type=='averaging', 
+         bias_rel_to_target := sign(angle_diff_360(target_color, realTargetColor)) * be_c]
+
+# Create the plot
+plot.pointrange(tomatoes[is_outlier==F & !is.na(abs_err) & task_type=='averaging',], 
+                aes(x = similarity_bin, color = noise, y = bias_rel_to_target), 
+                within_subj = TRUE, 
+                wid = 'subject_id', 
+                design = 'w') +
+  geom_hline(yintercept = 0, linetype = 2)+
+  labs(x = "Similarity Bin (degrees)", 
+       y = "Bias Relative to Target (degrees)",
+       color = "Noise Level")
+
+# Run ANOVA on bias
+bias_anova <- ezANOVA(
+  data = tomatoes[is_outlier==F & !is.na(abs_err) & task_type=='averaging',],
+  dv = .(bias_rel_to_target),
+  wid = .(subject_id),
+  within = .(similarity_bin, noise),
+  type = 3
+)
+```
+
+For the averaging task, we calculated a bias measure to determine whether participants' color reports were systematically pulled toward one of the original stimuli. This bias was computed by taking the signed error between the reported color and the target color, with the sign indicating whether errors tended toward the distractor (positive values) or away from it (negative values).
+
+The analysis of bias in the averaging task revealed that the effect of similarity bin was not significant, `r describe.ezanova(bias_anova, "similarity_bin")`, indicating that the similarity between the two colors alone did not systematically affect the direction of participants' errors. However, the effect of noise was significant, `r describe.ezanova(bias_anova, "noise")`, demonstrating that the variability in the color patches significantly influenced how participants weighted the stimuli when computing the average. Importantly, we found a significant interaction between similarity bin and noise, `r describe.ezanova(bias_anova, "similarity_bin:noise")`, indicating that the effect of noise on bias was moderated by the similarity between target and distractor colors. This interaction suggests that depending on the noise level, participants weighted the two stimuli differently when computing the average, with higher noise conditions potentially leading to more bias toward the more variable stimuli. 
+
+```{r}
+
+#| label: explore-interaction
+
+# Compute mean and CI for each group
+mean_bias <- get_superb_ci(
+  tomatoes[!is.na(abs_err) & is_outlier==F & task_type=='averaging'],   
+  wid = c('subject_id'),  
+  within = c('noise', 'similarity_binf'), 
+  value_var = 'bias_rel_to_target'
+)
+setDT(mean_bias)
+
+# Add formatted string representation for mean and CI to each row
+mean_bias[, mean_ci_str := sprintf("_M_ = %.2f [%.2f, %.2f]", 
+                                  center, 
+                                  center + lowerwidth, 
+                                  center + upperwidth)]
+
+# Split by similarity bin and perform separate ANOVAs
+similarity_bins <- unique(tomatoes$similarity_binf)
+split_results <- lapply(split(tomatoes[!is.na(abs_err) & is_outlier==F & task_type=='averaging' ], by = 'similarity_bin'), function(dt) {
+  
+  
+  ezANOVA(
+    data = dt,
+    dv = .(bias_rel_to_target),
+    wid = .(subject_id),
+    within = .(noise),
+    type = 3
+  )
+})
+names(split_results)<-paste0('c',names(split_results))
+```
+
+Separate ANOVAs for each similarity bin showed that the effect of the noise was significant only when items were relatively similar (`r describe.ezanova(split_results$c20)` for 20 deg. similarity and `r describe.ezanova(split_results$c45)` for 45 deg.) but not when they were very different (`r describe.ezanova(split_results$c135)`). With both 20 and 40 similarity, responses were closer to the more variable item, as @fig-bias-analysis shows.
+
