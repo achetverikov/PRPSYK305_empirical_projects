@@ -151,7 +151,7 @@ title_code_matching <- data.frame(
   )
 
 title_code_matching <- merge(res[,.N, by = study_name], title_code_matching, by = c('study_name'))
-message(str(title_code_matching))
+
 
 ```
 

@@ -1,5 +1,5 @@
 ---
-title: Colors and imagery
+title: Color memory and imagery
 knitr:
   opts_chunk: 
     echo: false
@@ -32,11 +32,14 @@ library(apastats)
 library(data.table)
 library(jsonlite)
 library(stringr)
+library(ez)
 library(knitr)
 library(Hmisc)
 library(superb)
 library(circhelp)
+library(patchwork)
 
+fig_width <- 7
 default_font = 'Gill Sans Nova Light'
 
 default_font_size <- 10
@@ -114,6 +117,15 @@ temp_dir <- gsub('\\\\', '/', temp_dir)
 temp_dir <- paste(temp_dir, randstring(1), sep = '/')
 res_file <- paste0(tempfile(),'.zip')
 
+req_url <-  sprintf("%sresults/metadata?studyUuid=%s", jatos_url, study_uid)
+system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
+
+metadata <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
+setDT(metadata)
+unlink(paste0(temp_dir, "/*"))
+finished_study <- metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
+
+
 url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
 system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
 unzip(res_file, exdir=temp_dir)  # unzip your file
@@ -130,15 +142,18 @@ comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
   dt <- as.data.table(metadata$componentResults[[x]])
   dt
 }), fill = T)
-comp_res_meta[componentId=='29868'] # vviq
+
 flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
 flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
-flist_vviq <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId=='29868',id]]
+# on the next line, one id is manually excluded as this participant did the vviq part twice, so we use the latest result
+flist_vviq <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId=='29868'&id!='1067177',id]]
 flist_colors <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId!='29868',id]]
+
 
 data_vviq <- rbindlist(lapply(c(flist_vviq), \(x){
   data <- read_json(x)
   data.table(participant = str_extract(x, 'study_result_(\\d+)', group = 1),
+             result_id=str_extract(x, 'comp-result_(\\d+)', group = 1),
              vviq = sum(sapply(data,\(q) ifelse(length(q$response)==4, do.call(sum, q$response), 0))))
 }))
 
@@ -182,15 +197,18 @@ data_color <- suppressWarnings(rbindlist(lapply(c(flist_colors), \(x){
 
 unlink(paste0(temp_dir, "/*"))
 
+data_color <- data_color[participant%in%finished_study$id]
+data_vviq <- data_vviq[participant%in%finished_study$id]
 data_color <- merge(data_color, data_vviq, by = 'participant')
 data_color[,participant:=paste0('S',as.numeric(factor(participant, levels = sample(unique(data_color$participant)), labels = 1:length(unique(data_color$participant)))))]
 
 data_color[,c('startDate','endDate','result_id','avg_frame_time'):=NULL]
 
 setnafill(data_color, type = "locf", cols = c('window_height','window_width'))
-drop.empty.cols(data_color)
+data_color <- drop.empty.cols(data_color)
 data_color <- data_color[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
 ```
+
 
 ```{r}
 
@@ -221,12 +239,6 @@ data_color[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean.nn
 #outliers 
 data_color<-data_color[participant%nin%data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant][V2>60|N<500, participant]]
 
-plot.pointrange(data_color[!is.na(abs_err)], aes(x = participant, y = abs_err, color = noise), within_subj = F, wid ='participant', withinvars = c('cue_n','noise'), do_aggregate = F)+
-  facet_grid(.~cue_n)+coord_flip()
-
-plot.pointrange(data_color, aes(x = noise, y = abs_err, color = noise), 
-                within_subj = T, wid ='participant', withinvars = c('cue_n','noise'))+
-  facet_grid(.~cue_n)
 
 data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant]
 db_res <- lapply(split(data_color[!is.na(error),], by = c('participant', 'cue_n')), \(dt){
@@ -246,14 +258,149 @@ data_color[,avg_abs_err:=mean.nn(abs(be_c)), by = participant]
 data_color[,noise_equal:=factor(distr_noise==target_noise, levels = c(F, T), labels = c('Unequal noise', 'Equal noise'))]
 data_color[,bias_distr:=NULL]
 data_color[,similarity_binf:=factor(similarity_bin)]
-names(data_color)
 
-# biases plot
-ggplot(data_color[is_outlier==F], aes(x = similarity_bin, y = bias_to_distr_corr, color = factor(target_noise)))+stat_summary(binwidth = 30, position = position_dodge(width = 0), show.legend = FALSE )+stat_summary(geom='line', binwidth = 30, position = position_dodge(width = 0))+facet_grid(noise_equal~.)+theme(panel.grid.major.x = element_blank(),panel.grid.minor.x = element_blank())+geom_hline(yintercept = 0, linetype = 2)+scale_x_continuous(breaks = unique(data_color$similarity_bin))
+data_color <- data_color[is_outlier==F]
 
 ```
 
-```{r}
-data_color[,.(bias_by_block=mean.nn(bias_to_distr_corr)), by = .(participant,  vviq)]
+# Method
 
+## Participants
+`r str_to_sentence(apastats:::numbers2words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(finished_study[,.N]-data_color[,lengthu(participant)]))` participant was excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
+
+## Procedure
+Participants first completed a browser check to ensure their screen met the minimum requirements (1000 × 600 pixels) and were instructed to switch to fullscreen mode. They then received general instructions explaining the purpose of the study and were informed that they would complete a questionnaire followed by a memory task. Participants completed the Visual Vividness Imagery Questionnaire, after which they received detailed instructions for the color memory task. They then completed training on the color memory task followed by two experimental blocks with a short break halfway through each block.
+
+## Materials
+The experiment was implemented using jsPsych 7.3.4, a JavaScript library for conducting behavioral experiments in a web browser.
+
+### Visual Vividness Imagery Questionnaire (VVIQ)
+Participants completed a shortened version of the Visual Vividness Imagery Questionnaire (Marks, 1973), which assessed their self-reported ability to form mental images. The VVIQ included four scenarios (out of the original eight): visualizing a relative or friend, a sunrise, a shop front, and a countryside scene, presented in random order. For each scenario, participants were presented with a screen containing all four specific visual details to rate simultaneously. Participants rated the vividness of each detail on a 5-point scale, from "No image at all, you only 'know' that you are thinking of the object" (1) to "Perfectly clear and as vivid as real seeing" (5). Higher scores indicated more vivid visual imagery.
+
+### Color Memory Task
+Participants performed a color memory task that required them to remember the colors of two simultaneously presented colored patches.
+
+#### Stimuli
+Each colored patch consisted of an 8 × 8 grid of colored squares (64 squares total). Colors were represented in the OKLCH color space, with hue values ranging from 0° to 360°. The colors of individual squares within each patch were drawn from a normal distribution with a mean corresponding to the target color and a standard deviation that could be either 5° or 20° in hue angle. Target colors were selected from six color bins spaced evenly around the 360° color wheel (i.e., at approximately 60° intervals), with random jitter covering the entire bin to ensure the whole color space was sampled. The similarity between the two patches' mean colors was manipulated across three levels (20°, 45°, or 135° separation in hue angle). The patches were presented to the left and right of a central fixation point.
+
+#### Trial Procedure
+Each trial began with a central fixation circle (1000 ms), followed by the simultaneous presentation of two colored patches for a variable duration (1500 ms in the main blocks). After a brief memory delay (500 ms), a white circle (cue) appeared either to the left or right of fixation (500 ms), indicating which color patch the participant needed to report. Participants then saw a color wheel and were asked to select the color that best matched the average color of the cued patch by clicking on the appropriate position on the wheel. The color wheel had a random offset on each trial to prevent position-based response strategies. Participants had 5 seconds to respond. If they failed to respond within this time window, they received a "Too late! Try to respond faster next time" message for 2500 ms. After reporting the first color, participants were cued to report the color of the second patch following the same procedure.
+
+#### Design
+The experiment employed a 6 (color bin) × 2 (target position: left, right) × 2 (target standard deviation: 5°, 20°) × 2 (distractor standard deviation: 5°, 20°) × 3 (similarity bin: 20°, 45°, 135°) within-subjects factorial design.
+
+#### Training
+Before starting the main experimental trials, participants completed 10 training trials where stimulus presentation times were initially longer (4000 ms for the colored patches and 1000 ms for the cue) and gradually decreased to match the timing used in the main experiment (1500 ms and 500 ms, respectively). During training, participants received detailed feedback showing both their response and the correct answer after each trial.
+
+Participants' performance was scored based on the angular deviation between their response and the target color, with higher scores awarded for more accurate responses.
+
+# Results
+
+
+
+## Vividness of Visual Imagery Questionnaire
+
+```{r vviq-distribution}
+#| label: fig-vviq
+#| fig-cap: "Distribution of Visual Vividness Imagery Questionnaire (VVIQ) scores across participants. Higher scores indicate more vivid self-reported visual imagery."
+#| fig-asp: 0.25
+
+ggplot(data_vviq, aes(x = vviq)) +
+  geom_dotplot(binwidth = 1) +
+  coord_cartesian(xlim = c(20,80)) +
+  labs(x = 'VVIQ score', y = 'Count') +
+  theme(axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank())
 ```
+
+The VVIQ scores were between `r min(data_vviq$vviq)` and `r max(data_vviq$vviq)` (`r describe.mean.conf(data_vviq$vviq)`).
+
+## Color recall accuracy
+
+```{r noise-effect}
+#| label: fig-noise-effect
+#| fig-cap: "Effect of target and distractor noise on color recall accuracy. Error bars represent 95% confidence intervals corrected for within-subject comparisons."
+#| fig-asp: 0.75
+
+plot.pointrange(data_color, aes(x = target_noise, 
+                               y = abs_be_c, 
+                               color = distr_noise),
+               within_subj = TRUE, 
+               wid = 'participant', 
+               withinvars = c('target_noise','distr_noise')) +
+  labs(x = 'Target noise level', 
+       y = 'Average absolute error (degrees)',
+       color = 'Distractor noise') +
+  scale_color_discrete(labels = c("Low", "High")) +
+  scale_x_discrete(labels = c("Low", "High")) 
+
+# Run ANOVA
+ez_res_abs_err <- ezANOVA(
+  data = data_color,
+  dv = .(abs_be_c),
+  wid = .(participant),
+  within = .(target_noise, distr_noise),
+  type = 3
+)
+```
+
+A repeated-measures ANOVA indicated a significant effect of target noise `r describe.ezanova(ez_res_abs_err, 'target_noise')` and a target × distractor noise interaction `r describe.ezanova(ez_res_abs_err, 'target_noise:distr_noise')`. Performance dropped significantly when the targets became more noisy: `r describe.ttest(dcast(data_color, participant~target_noise, value.var = 'abs_err', fun = mean)[,t.test(low, high, paired = T)])`. However, the effect of distractor noise was noticeable only when the target had a low noise level `r describe.ttest(dcast(data_color[target_noise=='low'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` but not when it had a high noise level `r describe.ttest(dcast(data_color[target_noise=='high'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])`.
+
+## Does imagery score predict the recall accuracy?
+
+```{r vviq-correlations}
+#| label: fig-vviq-corr
+#| fig-cap: "Relationship between VVIQ scores and color memory performance. (A) Overall correlation between VVIQ and recall accuracy. (B) Correlation between VVIQ and the effect of target noise. (C) Correlation between VVIQ and the difference in performance between 2nd and 1st reported items."
+#| fig-width: 10
+#| fig-asp: 0.4
+
+# Prepare data summaries
+perf_vviq <- data_color[,.(mem_perf_bc = circ_sd_360(be_c), 
+                           bias_to_distr = circ_mean_360(bias_to_distr_corr)), 
+                        by = .(participant, vviq)]
+
+perf_vviq_by_cue_n <- data_color[,.(mem_perf_bc = circ_sd_360(be_c), 
+                                    bias_to_distr = circ_mean_360(bias_to_distr_corr)), 
+                                 by = .(participant, vviq, cue_n)]
+
+perf_vviq_by_noise <- data_color[,.(mem_perf_bc = circ_sd_360(be_c), 
+                                    bias_to_distr = circ_mean_360(bias_to_distr_corr)), 
+                                 by = .(participant, vviq, target_noise)]
+
+# Create derived measures
+delta_by_vviq <- dcast(perf_vviq_by_noise, 
+                       participant+vviq~target_noise, 
+                       value.var = 'mem_perf_bc')[,delta:=high-low]
+
+delta_cue_n_by_vviq <- dcast(perf_vviq_by_cue_n, 
+                            participant+vviq~cue_n, 
+                            value.var = 'mem_perf_bc')[,delta:=`2`-`1`]
+
+# Common theme for all plots
+
+# Plot 1: Overall correlation between VVIQ and recall accuracy
+p1 <- ggplot(perf_vviq, aes(x = vviq, y = mem_perf_bc)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  labs(x = "VVIQ score", y = "Memory performance\n(SD of errors)") 
+  
+
+# Plot 2: Correlation between VVIQ and noise effect
+p2 <- ggplot(delta_by_vviq, aes(x = vviq, y = delta)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  labs(x = "VVIQ score", y = "Effect of noise\n(High - Low)") 
+# Plot 3: Correlation between VVIQ and delta between 1st and 2nd item performance
+p3 <- ggplot(delta_cue_n_by_vviq, aes(x = vviq, y = delta)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  labs(x = "VVIQ score", y = "Performance difference\n(2nd item - 1st item)") 
+
+# Combine plots with patchwork and add tags
+(p1 + p2 + p3) + 
+  plot_annotation(tag_levels = 'A') &
+  theme(plot.tag = element_text(face = "bold", size = 12))
+```
+
+Overall, there was no correlation between recall accuracy and VVIQ score (`r perf_vviq[,describe.r(cor.test(mem_perf_bc, vviq))]`). Furthermore, the drop in performance in the high noise condition compared to the low noise condition also did not correlate with VVIQ scores (`r delta_by_vviq[,describe.r(cor.test(delta, vviq))]`). Finally, we analyzed the difference in performance between the second item and the first item (where positive values indicate worse performance for the second item), but also did not see any correlation with VVIQ score (`r delta_cue_n_by_vviq[,describe.r(cor.test(delta, vviq))]`).
