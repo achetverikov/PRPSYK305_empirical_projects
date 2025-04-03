@@ -262,12 +262,44 @@ tomatoes[,noise_equal:=factor(distr_noise==target_noise, levels = c(F, T), label
 tomatoes[,bias_distr:=NULL]
 tomatoes[,similarity_binf:=factor(similarity_bin)]
 
+tomatoes <- drop.empty.cols(tomatoes)
+tomatoes[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
+
+tomatoes <- tomatoes[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
+
+tomatoes_out <- tomatoes[order(subject, trial_number),.(subject, trial_number, target_color, distr_color, left_color, right_color, left_sd,  right_sd, target_noise, distr_noise, noise, similarity_bin, resp_color,  rawError = error, realTargetColor, realErr, errorCorrected = be_c, is_outlier     )]
+fwrite(tomatoes_out, file = 'tomatoes.csv')
 ```
+
+# Instructions
+
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `tomatoes.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+
+* `subject` - participant identifier (ordinal factor with 34 levels)
+* `trial_number` - trial number within the experiment
+* `target_color` - the color value of the target stimulus in degrees
+* `distr_color` - the color value of the distractor stimulus in degrees
+* `left_color` - the color value of the left stimulus in degrees
+* `right_color` - the color value of the right stimulus in degrees
+* `left_sd` - standard deviation of the color distribution for the left stimulus
+* `right_sd` - standard deviation of the color distribution for the right stimulus
+* `target_noise` - noise level of the target stimulus (factor: "low" or "high")
+* `distr_noise` - noise level of the distractor stimulus (factor: "low" or "high")
+* `noise` - combined noise condition from target and distractor (factor with 4 levels: "low - low", "high - low", "low - high", "high - high")
+* `similarity_bin` - angular distance between target and distractor colors in degrees (20°, 45°, or 135°)
+* `resp_color` - the color value reported by the participant in degrees
+* `rawError` - raw error in the participant's response
+* `realTargetColor` - the actual target color value to be reported
+* `realErr` - the actual error in the participant's response
+* `errorCorrected` - the error after correction for individual biases (better to use this one for analyses than the raw error)
+* `is_outlier` - binary indicator of whether the trial was identified as an outlier based on the error magnitude (0 = not an outlier, 1 = outlier)
+
+Note that in case of the averaging task what is target and what is distractor is determined randomly as people report the average color of the two items. This is why they are referred to as A and B in @fig-bias-analysis. 
 
 # Methods
 
 ## Participants
-`r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]-tomatoes[,lengthu(subject_id)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
+`r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]-tomatoes[,lengthu(subject)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
 
 ## Apparatus, Stimuli, and Procedure
 The experiment was conducted using a web-based platform built with jsPsych (version 7.3.2). Stimuli were presented on participants' personal displays with a minimum required resolution of 1000 × 600 pixels, verified via browser-check.
@@ -285,8 +317,6 @@ The experiment had a within-subjects factorial design with the following factors
 # Results
 
 
-Here's the revised code with the figure caption within the chunk and other requested changes:
-
 ```{r}
 #| fig-cap: "Mean absolute error in color reporting as a function of similarity bin and task type. Error bars represent within-subject 95% confidence intervals."
 #| label: fig-color-error
@@ -295,7 +325,7 @@ Here's the revised code with the figure caption within the chunk and other reque
 plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
                 aes(x = similarity_bin, y = abs_be_c, color = task_type), 
                 within_subj = TRUE, 
-                wid = 'subject_id', 
+                wid = 'subject', 
                 withinvars = c('task_type','similarity_bin')
                 ) +
   labs(x = "Similarity Bin (degrees)", 
@@ -306,7 +336,7 @@ plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
 abs_error_anova <- ezANOVA(
   data = tomatoes[!is.na(abs_err)&is_outlier==F],
   dv = .(abs_be_c),
-  wid = .(subject_id),
+  wid = .(subject),
   within = .(task_type, similarity_binf),
   detailed = TRUE,
   type = 3
@@ -320,7 +350,7 @@ The repeated-measures ANOVA revealed an effect of the task type `r describe.ezan
 
 
 ```{r}
-#| fig-cap: "Bias in reported color relative to target color in the averaging task as a function of similarity bin and noise level. Positive values indicate bias toward the distractor. Error bars represent within-subject 95% confidence intervals."
+#| fig-cap: "Bias in reported color in the averaging task as a function of similarity bin and noise level. Positive values indicate bias toward a stimulus A in a pair of stimuli A-B with noise levels shown as color. Because the average color is between A and B, bias towards A simultaneously indicates bias away from B and vice versa. Error bars represent within-subject 95% confidence intervals."
 #| label: fig-bias-analysis
 
 # Calculate bias relative to target for averaging task
@@ -331,18 +361,18 @@ tomatoes[!is.na(abs_err) & task_type=='averaging',
 plot.pointrange(tomatoes[is_outlier==F & !is.na(abs_err) & task_type=='averaging',], 
                 aes(x = similarity_bin, color = noise, y = bias_rel_to_target), 
                 within_subj = TRUE, 
-                wid = 'subject_id', 
+                wid = 'subject', 
                 design = 'w') +
   geom_hline(yintercept = 0, linetype = 2)+
   labs(x = "Similarity Bin (degrees)", 
-       y = "Bias Relative to Target (degrees)",
-       color = "Noise Level")
+       y = "Bias Relative to A (degrees)",
+       color = "Noise Level\n(Stim. A - Stim. B)")
 
 # Run ANOVA on bias
 bias_anova <- ezANOVA(
   data = tomatoes[is_outlier==F & !is.na(abs_err) & task_type=='averaging',],
   dv = .(bias_rel_to_target),
-  wid = .(subject_id),
+  wid = .(subject),
   within = .(similarity_bin, noise),
   type = 3
 )
@@ -359,7 +389,7 @@ The analysis of bias in the averaging task revealed that the effect of similarit
 # Compute mean and CI for each group
 mean_bias <- get_superb_ci(
   tomatoes[!is.na(abs_err) & is_outlier==F & task_type=='averaging'],   
-  wid = c('subject_id'),  
+  wid = c('subject'),  
   within = c('noise', 'similarity_binf'), 
   value_var = 'bias_rel_to_target'
 )
@@ -379,7 +409,7 @@ split_results <- lapply(split(tomatoes[!is.na(abs_err) & is_outlier==F & task_ty
   ezANOVA(
     data = dt,
     dv = .(bias_rel_to_target),
-    wid = .(subject_id),
+    wid = .(subject),
     within = .(noise),
     type = 3
   )

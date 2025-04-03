@@ -102,6 +102,16 @@ temp_dir <- gsub('\\\\', '/', temp_dir)
 temp_dir <- paste(temp_dir, randstring(1), sep = '/')
 res_file <- paste0(tempfile(),'.zip')
 
+req_url <-  sprintf("%sresults/metadata?studyUuid=%s", jatos_url, study_uid)
+system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
+
+metadata <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
+setDT(metadata)
+unlink(paste0(temp_dir, "/*"))
+finished_study <- metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
+finished_study[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
+finished_study[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
+finished_study <- finished_study[id!='808752'] # too short duration
 url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
 system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
 unzip(res_file, exdir=temp_dir)  # unzip your file
@@ -123,10 +133,11 @@ flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
 flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
 
 data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
-  print(x)
+  
   comp_res_id <- str_extract(x, '(?<=comp-result_)\\d{6}')
   data <- read_json(x)
   if (length(data)<10){
+    print(x)
     return(data.frame())
   }
   data <- data[sapply(data, \(x) x$trial_type=='psychophysics')]
@@ -155,24 +166,83 @@ data[,expected_lengthf:=factor(expected_length )]
 data[,trial_i_within_blockf:=factor(trial_i_within_block )]
 data[,trial_i_within_block_rel:=trial_i_within_block-expected_length]
 data[,prevLengthDiff := shift(lengthDiff), by = participant]
+data <- data[participant%nin% data[,.(mean.nn(correct), mean.nn(rt)), by = participant][V1<.9, participant]]
 
-
+str(data[,.(participant, block_i, expected_length, real_length, lengthDiff, trial_i_within_block, next_wave_in, targetMeanColor, distractorMeanColor, clicked_monster_id, correct, rt)])
+fwrite(data[,.(participant, block_i, expected_length, real_length, lengthDiff, trial_i_within_block, next_wave_in, targetMeanColor, distractorMeanColor, clicked_monster_id, correct, rt)], file = 'monsters.csv')
 ```
 
+# Instructions
 
-```{r results='show'}
-data[,.N, keyby = participant]
-```
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `tomatoes.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+
+- `participant`: Participant identifier.
+- `block_i`: Block number within the experiment (indicating progression through sequences).
+- `expected_length`: The expected length of the current sequence (5, 6, or 7 trials).
+- `real_length`: The actual length of the sequence after applying the length difference (1-12 trials).
+- `lengthDiff`: The difference between expected and actual sequence length (-4 to +4 trials).
+- `trial_i_within_block`: Position of the current trial within its sequence (1 to real_length).
+- `next_wave_in`: Counter shown to participants indicating expected remaining trials before next sequence (0 when a new sequence is about to begin).
+- `targetMeanColor`: Hue value (0-360°) of the target "leader" monster.
+- `distractorMeanColor`: Hue value (0-360°) of the distractor monsters.
+- `clicked_monster_id`: Index of the monster clicked by the participant (0 indicates the leader).
+- `correct`: Binary indicator of response accuracy (1 = correct, 0 = incorrect).
+- `rt`: Response time in milliseconds.
+
+# Method
+
+## Participants
+`r str_to_sentence(apastats:::numbers2words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(finished_study[,.N]-data[,lengthu(participant)]))` participant was excluded because they had zero correct responses. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
+
+## Apparatus and Stimuli
+The experiment was programmed using jsPsych 7.3.4 with the psychophysics plugin (version 3.7.0). Stimuli consisted of colored monster-shaped figures displayed on a gray background within an 800 × 800 pixel canvas. Each monster was drawn using SVG path data with an initial width of 96 pixels and height of 88 pixels, and filled with a color represented in the OKLCH color space, with hue values ranging from 0° to 360° while maintaining constant luminance (50%) and chroma (0.1). The monsters were positioned randomly within a 600 × 400 pixel area centered on the screen (from -300 to +300 horizontally and -200 to +200 vertically), with a minimum distance of 120 pixels between them to ensure visibility.
+
+Each trial displayed 12 monster figures simultaneously, with one monster (the "leader") having a distinct color from the rest of the group. The leader's color was randomly selected from the full 360° color wheel, while the other monsters' colors were selected from a region 145° to 235° away from the leader color on the color wheel, with random jitter within this range. For each new sequence, the target and distractor colors were determined randomly.
+
+## Design
+The experiment employed a within-subjects design examining how participants develop expectations about sequence lengths. The key manipulating factors were:
+- Expected sequence length (4 levels: 5, 6, or 7 trials per wave)
+- Length difference (9 levels: -4, -3, -2, -1, 0, 1, 2, 3, or 4 trials from expected)
+
+The length difference factor determined how the actual sequence length deviated from the expected length. For example, if the expected length was 6 trials and the length difference was -2, the actual sequence contained only 4 trials. Each combination of expected length and non-zero length difference (e.g., 5 trials with +2 difference) was repeated 2 times throughout the experiment. In contrast, combinations with zero length difference (e.g., 5 trials with 0 difference) were repeated 16 times. This created a probability distribution where participants were much more likely to experience sequences that matched their expectations, with occasional unexpected deviations.
+
+As a result of these manipulations, the actual length of sequences varied from 1 to 11 trials (when expected length was 11 and length difference was +4). The full factorial design with the biased distribution of length differences resulted in a total of 576 trials per participant.
+
+## Procedure
+The experiment began with an instruction screen explaining the task, followed by a browser check to ensure minimum screen requirements were met. Participants were instructed that monsters from outer space were attacking in waves, each with a leader distinguished by its unique color. Their task was to eliminate the leader as quickly as possible by clicking on it with their mouse.
+
+Each trial began with a 500 ms message indicating how many groups remained before a new wave would begin. Then, a set of monsters appeared on the screen, with one monster (the leader) having a distinct color from the others. Participants had exactly 5000 ms to identify and click on the leader. The monsters began increasing in size immediately from the start of each trial, following a specified scaling function (reaching 1.25× their original size at 80% of the trial duration, and 2× by the end), encouraging participants to respond within the time limits. If participants failed to click on the correct monster, they received a feedback message stating "Oh no! You missed the leader" for 2500 ms.
+
+The experiment was divided into blocks, with breaks provided after every 16 sequences. During breaks, participants received feedback on their performance, including accuracy (number of correctly identified leaders) and average response time. Based on performance metrics, participants earned bronze stars (for basic completion), silver stars (for >80% accuracy and <1.8 seconds average response time), or gold stars (for >90% accuracy and <1.1 seconds average response time), which were displayed as a cumulative record throughout the experiment.
+
+At the end of the experiment, participants received a summary of their overall performance before submitting their data and completing the study.
+
+## Results
 
 ```{r}
 (data_descr <- data[,.(.N, mean_RT = mean.nn(rt), mean_corr = mean.nn(correct)), keyby = .( trial_i_within_block_rel)])
 
-plot.pointrange(data[correct==1], aes(x = trial_i_within_blockf, y = mouse_first_move_time , color = expected_lengthf ), wid = 'participant', within_subj = F, withinvars=c('trial_i_within_blockf','expected_lengthf'), do_aggregate = F, connecting_line = T)
+data[,log_rt:=log(rt)]
+plot.pointrange(data[correct==1], aes(x = trial_i_within_blockf, y = rt , color = expected_lengthf ), wid = 'participant', within_subj = F, withinvars=c('trial_i_within_blockf','expected_lengthf'), do_aggregate = T, connecting_line = T)
 
-plot.pointrange(data[correct==1&trial_i_within_block_rel%between%c(-2,2)], aes(x = trial_i_within_block_rel, y = mouse_first_move_time , color = expected_lengthf ), wid = 'participant', within_subj = F, withinvars=c('trial_i_within_block_rel','expected_lengthf'), do_aggregate = F, connecting_line = T)
+contrasts(data$trial_i_within_blockf) <- contr.helmert(lengthu(data$trial_i_within_blockf))
 
-plot.pointrange(data[trial_i_within_block==1], aes(x = prevLengthDiff, y = mouse_first_move_time ), wid = 'participant', within_subj = F, do_aggregate = F, connecting_line = T)
+rt_fit <- lmerTest::lmer(rt~trial_i_within_blockf+(1+trial_i_within_blockf||participant), data[correct==1])
 
-
+t_res <- rbindlist(lapply(1:8, \(trial_i){
+  data.table(t(unclass(dcast(data[correct==1&trial_i_within_block>(trial_i-1)], participant ~ trial_i_within_block==trial_i , value.var = 'rt', fun = mean)[,t.test(`FALSE`,`TRUE`, paired = T)])))
+}))
+t_test_1_vs_rest <- dcast(data[correct==1], participant ~ trial_i_within_block==1 , value.var = 'rt', fun = mean)[,t.test(`TRUE`,`FALSE`, paired = T)]
 ```
 
+We first confirmed a general 'priming of pop-out' effect. By comparing RT on each trial with the average of subsequent trials, we found significantly longer RT (`r describe.ttest(t_res)`) for the first trial in each sequence ('wave'). However, following the first trial, no significant differences were observed (all _p_ > `r min(t_res[2:8, unlist(p.value)])`). 
+
+```{r}
+plot.pointrange(data[correct==1&trial_i_within_block_rel%between%c(-2,2)&lengthDiff!=0&trial_i_within_block_rel!=0], aes(x = trial_i_within_block_rel, y = rel_rt , color = expected_lengthf ), wid = 'participant', within_subj = T, withinvars=c('trial_i_within_block_rel','expected_lengthf'), do_aggregate = F, connecting_line = T, x_as_numeric = T)
+data[correct==1&trial_i_within_block_rel==0, ref_rt := rt]
+data[,rel_rt:=rt-ref_rt[!is.na(ref_rt)], by = .(participant, block_i)]
+data[,prev_ld_positive:=ifelse(prevLengthDiff>0,'longer than expected', ifelse(prevLengthDiff==0, 'as expected', 'shorter than expected'))]
+plot.pointrange(data[trial_i_within_block==1&!is.na(prev_ld_positive)], aes(x = prev_ld_positive, y = rt ), wid = 'participant', within_subj = F, do_aggregate = F, connecting_line = T)
+```
+
+We then tested how the expectations affect response times. 

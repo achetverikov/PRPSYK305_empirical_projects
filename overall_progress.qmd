@@ -147,6 +147,14 @@ title_code_matching <- data.frame(
     "JATOS_TOMATO_STUDY_UID",
     "JATOS_OBJ_STUDY_UID",
     "JATOS_MONSTERS_STUDY_UID"
+  ),
+  short_title = c(
+    "Visual Imagery",
+    "Temporal Attention",
+    "Decoy Effect",
+    "Subset Averaging",
+    "Objects in LTM",
+    "Automaticity"
   )
   )
 
@@ -165,15 +173,7 @@ title_code_matching$completion_percentage <- round((title_code_matching$N / tota
 
 # Create a bar plot showing progress of each study
 
-# Shorten study names for better display
-title_code_matching$short_title <- c(
-  "Visual Imagery",
-  "Temporal Attention",
-  "Decoy Effect",
-  "Subset Averaging",
-  "Objects in LTM",
-  "Automaticity"
-)
+
 
 # Create the progress bar plot
 progress_plot <- ggplot(title_code_matching, aes(y = reorder(short_title, N))) +
