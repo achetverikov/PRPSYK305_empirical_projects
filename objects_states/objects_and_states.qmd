@@ -1,0 +1,400 @@
+---
+title: Objects and states
+knitr:
+  opts_chunk: 
+    echo: false
+    message: false
+    warning: false
+    comment: NA
+    cache: false
+    fig.width: 7
+    fig.asp: 0.5
+    fig.path: "figures_decoy/"
+    dpi: 320
+    external: false
+    res: 320
+    results: "hide"
+    split: false 
+    tidy: false
+    dev: svg
+editor_options: 
+  chunk_output_type: console
+format: 
+  html: 
+    embed-resources: true
+---
+
+
+```{r setup}
+library(httr)
+library(apastats)
+library(data.table)
+library(jsonlite)
+library(stringr)
+library(knitr)
+library(Hmisc)
+library(superb)
+
+default_font = 'Gill Sans Nova Light'
+
+default_font_size <- 10
+default_line_size <- 1/.pt/3.82*4 
+default_font_size_mm <- default_font_size/ggplot2:::.pt
+
+default_point_size <- 4*default_line_size
+
+update_geom_defaults("line", list(linewidth = default_line_size))
+update_geom_defaults("text", list(size = default_font_size_mm, family = default_font))
+update_geom_defaults("segment", list(linewidth = default_line_size))
+update_geom_defaults("pointrange", list(linewidth = default_line_size))
+update_geom_defaults("vline", list(linewidth = default_line_size, colour = '#AFABAB'))
+update_geom_defaults("hline", list(linewidth = default_line_size, colour = '#AFABAB'))
+update_geom_defaults('function', list(linewidth = default_line_size))
+
+default_theme<-theme_light(base_size = default_font_size, base_line_size = default_line_size, base_family = default_font)+theme(
+  axis.line=element_line(linewidth = I(0.5)), 
+  axis.ticks= element_line(linewidth = I(0.25), colour = 'gray'),
+  axis.line.x=element_line(),
+  axis.line.y=element_line(),
+  panel.grid.major = element_blank(), 
+  panel.grid.minor = element_blank(),
+  legend.title=element_text(size=rel(1)), 
+  strip.text=element_text(size=rel(1), colour = 'black'), 
+  axis.text=element_text(size=rel(0.9), colour = '#4e4e4e'), 
+  axis.title=element_text(size=rel(1), colour = '#4e4e4e'), 
+  panel.border= element_blank(),
+  strip.background = element_blank(),
+  legend.position	='right', 
+  legend.key.height = unit(0.7, 'lines'),
+  plot.title=element_text(size=rel(1), hjust = 0.5),
+  plot.tag.position = c(0,1),
+  plot.background = element_blank(),
+  text=element_text(size=default_font_size), 
+  legend.text=element_text(size=rel(1)), 
+  axis.line.x.bottom = element_blank(), 
+  axis.line.y.left = element_blank(),
+  axis.line.x.top = element_blank(),
+  axis.line.y.right = element_blank())
+theme_set(default_theme)
+
+default_colors <-c('#3498db','#009f06','#FF7F00', '#7A378B','#f72034')
+scale_colour_discrete <- function(...) scale_colour_manual(values=default_colors, ...)
+scale_fill_discrete <- function(...) scale_fill_manual(values=default_colors, ...)
+scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22), ...)
+
+
+headers = c(
+  `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
+)
+
+jatos_url <- 'https://jatos.mindprobe.eu/jatos/api/v1/'
+
+randstring <- function(n = 5000) {
+  a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
+  paste0(a, sprintf("%04d", sample(9999, n, TRUE)), sample(LETTERS, n, TRUE))
+}
+
+data_list <- list()
+study_uid <- Sys.getenv('JATOS_OBJ_STUDY_UID')
+
+temp_dir <- tempdir(check = T)
+temp_dir <- gsub('\\\\', '/', temp_dir)
+temp_dir <- paste(temp_dir, randstring(1), sep = '/')
+res_file <- paste0(tempfile(),'.zip')
+
+req_url <-  sprintf("%sresults/metadata?studyUuid=%s", jatos_url, study_uid)
+system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
+
+metadata <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
+setDT(metadata)
+unlink(paste0(temp_dir, "/*"))
+finished_study <- metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
+finished_study[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
+finished_study[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
+finished_study <- finished_study[id%nin%c('771212','771225')] # beta version of the study
+
+url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
+system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
+unzip(res_file, exdir=temp_dir)  # unzip your file
+
+metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
+
+finished_study_ids <- metadata[,c('id', "endDate", "startDate")]
+setDT(finished_study_ids)
+finished_study_ids[,id:=as.character(id)]
+finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
+finished_study_ids[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
+
+comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
+  dt <- as.data.table(metadata$componentResults[[x]])
+  dt
+}), fill = T)
+
+flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
+flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study$id]
+
+data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
+  print(x)
+  comp_res_id <- str_extract(x, '(?<=comp-result_)\\d{6}')
+  data <- read_json(x)
+  if (length(data)<10){
+    return(data.frame())
+  }
+  data <- data[sapply(data, \(x) x$trial_type=='psychophysics' &&  'seq_type' %in% names(x))]
+  data <- rbindlist(lapply(data, \(x) data.table(trial_index = x$trial_index, category = x$category, final_img = unlist(x$final_imgs), correct = unlist(x$final_correct), tot_correct = x$correct, rt_last = unlist(x$rt[[length(x$rt)]]))))
+  data[,subject_id:=str_extract(x, 'study_result_(\\d+)', group = 1)]
+  data[,result_id:=str_extract(x, 'comp-result_(\\d+)', group = 1)]
+  data <- merge(data, finished_study_ids, by.x = 'subject_id', by.y = 'id')
+  
+  data
+  
+}), fill = T))
+
+unlink(paste0(temp_dir, "/*"))
+
+data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
+data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
+data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
+descr_stats <- data[,.(corr = mean(correct), rt = mean(unique(rt_last)), binom_p = binom.test(sum(correct), .N)$p.value), by = participant]
+# data <- data[participant%in%descr_stats[binom_p<.05, participant]]
+
+fwrite(data, file = 'objects_and_states.csv')
+
+```
+
+# Method
+
+The experiment followed the design of Utochkin & Brady (2020, Exp. 1, Exemplar-state task).
+
+## Participants
+
+`r apastats:::numbers2words(descr_stats[,.N])` participants were recruited to take part in an online experiment. None of the participants were excluded.  Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
+
+## Apparatus and Stimuli
+
+The experiment was programmed using jsPsych 7.3.4 with the psychophysics plugin (version 3.7.0). Stimuli consisted of 200 photographic images of everyday objects from 100 distinct object categories (e.g., bottles, chairs, food items, household objects, tools), taken from Brady et al. (2013). These stimuli were specifically designed to examine memory for object details, with each category containing two exemplars (different objects from the same category) and each exemplar appearing in two states (e.g., different orientations, configurations, or poses).
+
+Images were presented on a white background. During learning, images (250 x 250 pixels) were displayed centrally. During testing, images were arranged in a 2 × 2 grid, with horizontal positions at ±150 pixels from center and vertical positions at 50 ± 150 pixels from center.
+
+## Design
+The experiment employed a within-subjects design with a learning phase followed by a testing phase. During the learning phase, participants viewed 200 images (one state of each exemplar from all 100 categories). For half of the categories, both exemplars were shown in the same state; for the other half, exemplars were shown in different states.
+
+The testing phase consisted of 100 trials, one for each object category. Each trial presented four images arranged in two rows. In each row, one image was identical to one shown during learning (target), while the other was a novel state of either the same or different exemplar (distractor). The positions of targets and distractors were fully counterbalanced and randomized across trials.
+
+## Procedure
+
+The experiment began with general instructions explaining that participants would first learn images and later identify them among similar alternatives. A browser check ensured minimum screen requirements were met, and participants were instructed to switch to fullscreen mode.
+
+During the learning phase, participants viewed 200 images sequentially, each presented for 2000 ms. Participants were instructed to memorize the visual appearance of each image. The entire learning phase took approximately 7 minutes to complete.
+
+After completing the learning phase, participants received instructions for the testing phase. On each test trial, participants were presented with four images arranged in a 2 × 2 grid, with the instruction to "Click on one image in each row that was presented during the learning phase." Participants needed to select one image from each row by clicking directly on it. Selected images were highlighted with a gold-colored frame. The trial ended automatically once the participant had selected one image from each row.
+
+Performance was scored based on the number of correct selections (0, 1, or 2 per trial). At the conclusion of the experiment, participants received feedback on their overall performance, shown as the percentage of correctly recognized images.
+
+
+
+```{r}
+#| label: load-data
+
+# Read the data
+data <- fread("objects_and_states.csv")
+
+# Extract exemplar and state information from filenames
+data[, exemplar := as.integer(str_extract(final_img, "(?<=e)\\d+"))]
+data[, state := as.integer(str_extract(final_img, "(?<=s)\\d+"))]
+
+# Set factor for participant ID
+data[, participant := factor(participant)]
+
+# Summary stats
+num_participants <- length(unique(data$participant))
+num_categories <- length(unique(data$category))
+num_trials <- length(unique(data$trial_index))
+```
+
+
+## Accuracy in remembering exemplars
+
+```{r}
+#| label: exemplar-accuracy
+
+# Calculate overall accuracy
+mean_accuracy <- data[, mean(correct)]
+se_accuracy <- data[, sd(correct)/sqrt(.N)]
+
+# Calculate accuracy by participant
+accuracy_by_participant <- data[, .(acc = mean(correct)), by = participant]
+
+# t-test against chance (50%)
+t_test_result <- accuracy_by_participant[, t.test(acc, mu = 0.5)]
+```
+
+Overall accuracy in the exemplar-state task was  `r describe.mean.conf(accuracy_by_participant$acc*100)`%, which was significantly above chance level of 50%, `r describe.ttest(t_test_result)`.
+
+
+## Accuracy in remembering state
+```{r}
+#| label: process-data
+
+# First, determine the actual presented states based on chosen states and accuracy
+# If response is correct, presented state = chosen state
+# If response is incorrect, presented state = opposite state (assuming only 2 possible states)
+data[, presented_state := ifelse(correct == 1, state, 3 - state)]
+
+# Group data by trial to analyze pairs of responses
+trials_grouped <- data[, .(
+  exemplar_1 = .SD[exemplar == 1, exemplar],
+  exemplar_2 = .SD[exemplar == 2, exemplar],
+  chosen_state_1 = .SD[exemplar == 1, state],
+  chosen_state_2 = .SD[exemplar == 2, state],
+  presented_state_1 = .SD[exemplar == 1, presented_state],
+  presented_state_2 = .SD[exemplar == 2, presented_state],
+  correct_1 = .SD[exemplar == 1, correct],
+  correct_2 = .SD[exemplar == 2, correct]
+), by = .(participant, trial_index, category, tot_correct)]
+
+# Determine if the presented states were the same or different in the study phase
+trials_grouped[, same_presented_state := presented_state_1 == presented_state_2]
+
+# Determine if participant chose same states for both exemplars
+trials_grouped[, chose_same_state := chosen_state_1 == chosen_state_2]
+
+# Overall accuracy by condition
+trials_grouped[, .(
+  mean_accuracy = mean(tot_correct/2),
+  sem_accuracy = sd(tot_correct/2)/sqrt(.N)
+), by = same_presented_state]
+
+# Categorize responses for analysis
+trials_grouped[, response_type := factor(
+  dplyr::case_when(
+    tot_correct == 2 ~ "Both correct",
+    tot_correct == 1 ~ "One correct",
+    tot_correct == 0 ~ "None correct"
+  ), 
+  levels = c("Both correct", "One correct", "None correct")
+)]
+```
+
+```{r}
+#| label: state-memory
+
+# Analyze if participants correctly remembered whether states were the same or different
+# For each trial, calculate if they chose same/different states when the presented states were same/different
+
+# Calculate the proportion of trials where participants chose the same states 
+# grouped by whether the presented states were actually same or different
+same_state_data <- trials_grouped[, .(
+  chose_same_state = mean(chose_same_state)
+), by = .(participant, same_presented_state)]
+
+# Reshape to compare conditions
+same_state_wide <- dcast(same_state_data, participant ~ same_presented_state, 
+                         value.var = "chose_same_state")
+setnames(same_state_wide, c("participant", "diff_state", "same_state"))
+
+# Test if people were more likely to choose same states when presented states were the same
+t_test_same_diff <- t.test(same_state_wide$same_state, same_state_wide$diff_state, paired = TRUE)
+
+# Calculate means for plotting
+same_state_means <- same_state_data[, .(
+  mean_chose_same = mean(chose_same_state),
+  se_chose_same = sd(chose_same_state)/sqrt(.N)
+), by = same_presented_state]
+
+# Test against chance level (0.5)
+t_test_same_vs_chance <- t.test(same_state_wide$same_state, mu = 0.5)
+t_test_diff_vs_chance <- t.test(same_state_wide$diff_state, mu = 0.5)
+```
+
+```{r}
+#| label: fig-state-memory
+#| fig-cap: "Proportion of trials where participants chose the same state for both exemplars, based on whether the exemplars were actually presented in the same state or different states during study. Error bars represent standard errors of the mean."
+
+ggplot(same_state_means, aes(x = factor(same_presented_state, labels = c("Different states", "Same state")), 
+                            y = mean_chose_same)) +
+  geom_bar(stat = "identity", fill = default_colors[1], width = 0.5) +
+  geom_errorbar(aes(ymin = mean_chose_same - se_chose_same, 
+                   ymax = mean_chose_same + se_chose_same), 
+               width = 0.2) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  labs(x = "Study Condition", 
+       y = "Proportion choosing same states") +
+  ylim(0, 1)
+```
+
+Participants were able to discriminate between seeing exemplars in the same state versus different states. When exemplars were presented in the same state, participants were more likely to select the same state for both exemplars (`r f.round(same_state_means[same_presented_state == TRUE, mean_chose_same], 2)`), compared to when they were presented in different states (`r f.round(same_state_means[same_presented_state == FALSE, mean_chose_same], 2)`). This difference was significant, `r describe.ttest(t_test_same_diff)`.
+
+## Accuracy in exemplar-state binding
+
+```{r}
+#| label: binding-accuracy
+
+# Calculate the proportion correct based on same/different presented state condition
+binding_accuracy <- trials_grouped[, .(
+  mean_accuracy = mean(tot_correct/2),
+  se_accuracy = sd(tot_correct/2)/sqrt(.N)
+), by = same_presented_state]
+
+# Test if accuracy differs between same/different state condition
+accuracy_by_participant <- trials_grouped[, .(accuracy = mean(tot_correct/2)), 
+                                         by = .(participant, same_presented_state)]
+accuracy_wide <- dcast(accuracy_by_participant, participant ~ same_presented_state, 
+                      value.var = "accuracy")
+setnames(accuracy_wide, c("participant", "diff_state", "same_state"))
+
+# Test if binding accuracy differs between conditions
+t_test_binding <- t.test(accuracy_wide$same_state, accuracy_wide$diff_state, paired = TRUE)
+
+# For different states condition, test against chance (0.5)
+t_test_diff_vs_chance <- t.test(accuracy_wide$diff_state, mu = 0.5)
+t_test_same_vs_chance <- t.test(accuracy_wide$same_state, mu = 0.5)
+```
+
+```{r}
+#| label: fig-binding
+#| fig-cap: "Proportion choosing the correct state for a given exemplar when the two studied objects were shown in the same state (left; doesn't require binding) or different states (right; requires binding). Error bars represent standard errors of the mean."
+
+ggplot(binding_accuracy, aes(x = factor(same_presented_state, labels = c("Different states", "Same state")), 
+                            y = mean_accuracy)) +
+  geom_bar(stat = "identity", fill = default_colors[1], width = 0.5) +
+  geom_errorbar(aes(ymin = mean_accuracy - se_accuracy, 
+                   ymax = mean_accuracy + se_accuracy), 
+               width = 0.2) +
+  geom_hline(yintercept = 0.5, linetype = "dashed") +
+  labs(x = "Study Condition", 
+       y = "Proportion correct") +
+  ylim(0, 1)
+```
+
+The key question is whether participants can correctly bind state information to exemplars. Participants were significantly better at remembering the state of each exemplar when the exemplars were shown in the same state (`r f.round(binding_accuracy[same_presented_state == TRUE, mean_accuracy], 2)`) compared to when they were shown in different states (`r f.round(binding_accuracy[same_presented_state == FALSE, mean_accuracy], 2)`), `r describe.ttest(t_test_binding)`.
+
+For exemplars studied in the same state, performance was significantly above chance, `r describe.ttest(t_test_same_vs_chance)`. However, when exemplars were studied in different states, performance was not significantly different from chance, `r describe.ttest(t_test_diff_vs_chance)`.
+
+```{r}
+#| label: fig-response-distribution
+#| fig-cap: "Breakdown of the proportion of trials where participants report both items correctly, one item correctly, or no items correctly as a function of the study condition."
+
+# Calculate proportions of different response types by condition
+response_distribution <- trials_grouped[, .(
+  proportion = .N / sum(.N)
+), by = .(same_presented_state, response_type)]
+
+# Plot the distribution of responses
+ggplot(response_distribution, 
+       aes(x = factor(same_presented_state, labels = c("Different states", "Same state")), 
+           y = proportion, 
+           fill = response_type)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(x = "Study Condition", 
+       y = "Proportion of trials", 
+       fill = "Response") +
+  scale_fill_brewer(palette = "Blues", direction = -1)
+```
+
+To better understand the pattern of responses, we examined the distribution of trials where participants got both exemplars correct, one exemplar correct, or neither correct. In the same state condition, participants were more likely to get both items correct compared to the different state condition. The proportion of trials with one item correct was similar across both conditions, suggesting that the difference in overall accuracy was primarily driven by trials where participants either got both items correct or both incorrect.
+## References
+
+Brady, T. F., Konkle, T., Alvarez, G.A., and Oliva, A. (2013). Real-world objects are not represented as bound units: Independent forgetting of different object details from visual memory. Journal of Experimental Psychology: General, 142(3), 791-808.
+
+Utochkin, I. S., & Brady, T. F. (2020). Independent storage of different features of real-world objects in long-term memory. Journal of Experimental Psychology: General, 149(3), 530–549. https://doi.org/10.1037/xge0000664
