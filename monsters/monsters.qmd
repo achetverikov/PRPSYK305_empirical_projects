@@ -167,8 +167,8 @@ data[,trial_i_within_blockf:=factor(trial_i_within_block )]
 data[,trial_i_within_block_rel:=trial_i_within_block-expected_length]
 data[,prevLengthDiff := shift(lengthDiff), by = participant]
 data <- data[participant%nin% data[,.(mean.nn(correct), mean.nn(rt)), by = participant][V1<.9, participant]]
+data[,log_rt:=log(rt)]
 
-str(data[,.(participant, block_i, expected_length, real_length, lengthDiff, trial_i_within_block, next_wave_in, targetMeanColor, distractorMeanColor, clicked_monster_id, correct, rt)])
 fwrite(data[,.(participant, block_i, expected_length, real_length, lengthDiff, trial_i_within_block, next_wave_in, targetMeanColor, distractorMeanColor, clicked_monster_id, correct, rt)], file = 'monsters.csv')
 ```
 
@@ -217,17 +217,28 @@ The experiment was divided into blocks, with breaks provided after every 16 sequ
 
 At the end of the experiment, participants received a summary of their overall performance before submitting their data and completing the study.
 
+Based on your requests, I'll improve the results section by adding figure labels, enhancing axis labels, improving clarity, and fixing any grammar issues:
+
 ## Results
 
 ```{r}
-(data_descr <- data[,.(.N, mean_RT = mean.nn(rt), mean_corr = mean.nn(correct)), keyby = .( trial_i_within_block_rel)])
+data_descr <- data[,.(.N, mean_RT = mean.nn(rt[correct==1]), mean_corr = mean.nn(correct)), keyby = .( participant)]
+```
 
-data[,log_rt:=log(rt)]
-plot.pointrange(data[correct==1], aes(x = trial_i_within_blockf, y = rt , color = expected_lengthf ), wid = 'participant', within_subj = F, withinvars=c('trial_i_within_blockf','expected_lengthf'), do_aggregate = T, connecting_line = T)
+### Descriptive statistics
 
-contrasts(data$trial_i_within_blockf) <- contr.helmert(lengthu(data$trial_i_within_blockf))
+Participants were almost always accurate (`r describe.mean.conf(data_descr$mean_corr)`; here and later 95% confidence intervals are given in parentheses) and took on average `r describe.mean.conf(data_descr$mean_RT)` ms to respond.
 
-rt_fit <- lmerTest::lmer(rt~trial_i_within_blockf+(1+trial_i_within_blockf||participant), data[correct==1])
+```{r}
+#| label: fig-trial-position
+#| fig-cap: "Response time as a function of trial position within sequence for different expected sequence lengths. Error bars represent 95% confidence intervals."
+
+plot.pointrange(data[correct==1], aes(x = trial_i_within_blockf, y = rt, color = expected_lengthf), 
+                wid = 'participant', within_subj = F, 
+                withinvars=c('trial_i_within_blockf','expected_lengthf'), 
+                do_aggregate = T, connecting_line = T) +
+  labs(x = "Position in sequence", y = "Response time (ms)", 
+       color = "Expected length")
 
 t_res <- rbindlist(lapply(1:8, \(trial_i){
   data.table(t(unclass(dcast(data[correct==1&trial_i_within_block>(trial_i-1)], participant ~ trial_i_within_block==trial_i , value.var = 'rt', fun = mean)[,t.test(`FALSE`,`TRUE`, paired = T)])))
@@ -235,14 +246,57 @@ t_res <- rbindlist(lapply(1:8, \(trial_i){
 t_test_1_vs_rest <- dcast(data[correct==1], participant ~ trial_i_within_block==1 , value.var = 'rt', fun = mean)[,t.test(`TRUE`,`FALSE`, paired = T)]
 ```
 
-We first confirmed a general 'priming of pop-out' effect. By comparing RT on each trial with the average of subsequent trials, we found significantly longer RT (`r describe.ttest(t_res)`) for the first trial in each sequence ('wave'). However, following the first trial, no significant differences were observed (all _p_ > `r min(t_res[2:8, unlist(p.value)])`). 
+We first confirmed a general 'priming of pop-out' effect. By comparing response time (RT) on each trial with the average of subsequent trials, we found significantly longer RT (`r describe.ttest(t_res)`) for the first trial in each sequence ('wave'). This indicates that participants needed more time to respond when a new sequence began. However, following the first trial, no significant differences were observed between any position and subsequent positions (all _p_ > `r min(t_res[2:8, unlist(p.value)])`). This suggests that performance quickly stabilized after the initial trial in each sequence.
 
 ```{r}
-plot.pointrange(data[correct==1&trial_i_within_block_rel%between%c(-2,2)&lengthDiff!=0&trial_i_within_block_rel!=0], aes(x = trial_i_within_block_rel, y = rel_rt , color = expected_lengthf ), wid = 'participant', within_subj = T, withinvars=c('trial_i_within_block_rel','expected_lengthf'), do_aggregate = F, connecting_line = T, x_as_numeric = T)
+#| label: fig-bef_aft_exp_end
+#| fig-cap: "Response times relative to baseline (at expected sequence end) for trials before and after the expected end point in sequences that continued longer than expected. Error bars represent 95% confidence intervals."
+
 data[correct==1&trial_i_within_block_rel==0, ref_rt := rt]
 data[,rel_rt:=rt-ref_rt[!is.na(ref_rt)], by = .(participant, block_i)]
-data[,prev_ld_positive:=ifelse(prevLengthDiff>0,'longer than expected', ifelse(prevLengthDiff==0, 'as expected', 'shorter than expected'))]
-plot.pointrange(data[trial_i_within_block==1&!is.na(prev_ld_positive)], aes(x = prev_ld_positive, y = rt ), wid = 'participant', within_subj = F, do_aggregate = F, connecting_line = T)
+
+data_exp <- data[correct==1&trial_i_within_block_rel%between%c(-2,2)&lengthDiff!=0&trial_i_within_block_rel!=0]
+
+plot.pointrange(data_exp, aes(x = trial_i_within_block_rel, y = rel_rt), 
+                wid = 'participant', within_subj = T, 
+                withinvars=c('trial_i_within_block_rel'), 
+                do_aggregate = F, connecting_line = T, x_as_numeric = T) +
+  labs(x = 'Trial position relative to expected end of sequence', 
+       y = 'RT relative to baseline (ms)') +
+  geom_hline(yintercept = 0, linetype = 2) +
+  scale_x_continuous(breaks = c(-3:-1,1:3))
+
+t_res1 <- rbindlist(lapply(1:2, \(trial_i){
+  res <- dcast(data_exp[abs(trial_i_within_block_rel)==trial_i], participant ~ trial_i_within_block_rel>0 , value.var = 'rel_rt', fun = mean.nn)[,t.test(`FALSE`,`TRUE`, paired = T)]
+  res_dt <- data.table(t(unclass(res)))
+  res_dt[,descr:= describe.ttest(res)]
+  res_dt
+}))
+t_res2 <- rbindlist(lapply(1:2, \(trial_i){
+  data.table(t(unclass(data_exp[abs(trial_i_within_block_rel)==trial_i,mean.nn(rel_rt), by = participant][,t.test(V1)])))
+}))
 ```
 
-We then tested how the expectations affect response times. 
+We then tested how participants' expectations affect response times. To this end, we analyzed the trials preceding and following the expected end point in sequences that continued longer than expected. The response time at the expected end point (position = 0 in @fig-bef_aft_exp_end) was taken as the baseline. We found that RTs were numerically lower than the baseline in trials both preceding and following the expected end point, but this difference was not statistically significant (@fig-bef_aft_exp_end; `r describe.ttest(data_exp[,mean.nn(rel_rt), by = participant][,t.test(V1)])`). We also did not find any significant difference when comparing trials after versus before the expected end point (`r t_res1[,paste_and(descr)]` for the 1st and the 2nd trial relative to expected end, respectively).
+
+```{r}
+#| label: fig-rt_first
+#| fig-cap: "Response times on the first trial of a sequence as a function of whether the previous sequence was shorter than, equal to, or longer than expected. Error bars represent 95% confidence intervals."
+
+library(ez)
+data[,prev_ld_positive:=factor(ifelse(prevLengthDiff>0,'longer than expected', ifelse(prevLengthDiff==0, 'as expected', 'shorter than expected')), levels = c('shorter than expected', 'as expected','longer than expected'))]
+
+plot.pointrange(data[correct==1&trial_i_within_block==1&!is.na(prev_ld_positive)], 
+                aes(x = prev_ld_positive, y = rt), 
+                wid = 'participant', within_subj = T, 
+                do_aggregate = F, design = 'w', connecting_line = T) +
+                labs(x = 'Previous sequence type', y = 'Response time (ms)')
+
+eza_res <- ezANOVA(data[correct==1&trial_i_within_block==1&!is.na(prev_ld_positive)], 
+        wid = .(participant),
+        within = .(prev_ld_positive),
+        dv = .(rt),
+        type = 3)
+```
+
+Finally, we investigated whether the first trial in each sequence is affected by whether expectations were confirmed or violated in the previous sequence (@fig-rt_first). We compared response times on the first trial when the previous sequence was shorter than expected, as expected, or longer than expected. However, we did not find any significant effect of the previous sequence type (`r describe.ezanova(eza_res, 'prev_ld_positive')`). This suggests that participants' responses to a new sequence were not influenced by their experience with expectation violations in the previous sequence.
