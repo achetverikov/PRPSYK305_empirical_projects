@@ -23,8 +23,6 @@ editor_options:
 format: 
   html: 
     embed-resources: true
-post-render:
-  
 ---
 
 

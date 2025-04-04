@@ -12,7 +12,6 @@ knitr:
     fig.path: "figures_tomatoes/"
     dpi: 320
     out.width: 100%
-    
     external: false
     res: 320
     results: "hide"

@@ -9,6 +9,7 @@ knitr:
     cache: false
     fig.width: 7
     fig.asp: 0.5
+    out.width: 100%
     fig.path: "figures/"
     dpi: 320
     external: false
