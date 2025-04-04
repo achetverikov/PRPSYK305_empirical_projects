@@ -160,8 +160,7 @@ setnafill(data, type = "nocb", cols = c('start_ori','resp_ori','error','trial_nu
 data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
 data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
 data <- data[seq_type=='stimuli']
-data <- drop.empty.cols(data)
-data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
+
 
 data[,abs_err:=abs(error)]
 datam <- melt(data[,.(participant, block, trial_index, t1_ori, t2_ori, t3_ori, real_target_position)], measure.vars = patterns('_ori'))
@@ -169,11 +168,42 @@ datam[,item_pos:=as.numeric(str_extract( variable,'\\d+'))]
 datam <- datam[order(participant, block, trial_index, item_pos)]
 datam[,c('diff_to_next','diff_to_prev'):=list(angle_diff_180(value,shift(value, -1)),angle_diff_180(value,shift(value, 1))), by = .(participant, block, trial_index)]
 data<-merge(data, datam[real_target_position==item_pos, .(participant, block, trial_index, target_ori = value, diff_to_next, diff_to_prev)], by = c('participant', 'block', 'trial_index'))
+data <- drop.empty.cols(data)
 data[,N_by_participant:=.N, by = participant]
 data <- data[N_by_participant>100]
-fwrite(data, file = 'temporal_attention.csv')
+data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
+
+fwrite(data[,.(participant, block, trial_number, t1_ori, t2_ori, t3_ori, target_position, cue_type, real_target_position, start_ori, resp_ori, error, abs_err, target_ori, diff_to_next, diff_to_prev)], file = 'temporal_attention.csv')
 ```
 
+# Instructions
+
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `temporal_attention.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+
+* `participant` - participant identifier (integer: 1-39)
+* `block` - experimental block (0-1)
+* `trial_number` - trial number within the experiment
+* `t1_ori` - orientation of the first Gabor patch (degrees)
+* `t2_ori` - orientation of the second Gabor patch (degrees)
+* `t3_ori` - orientation of the third Gabor patch (degrees)
+* `target_position` - initial cue position (1, 2, or 3), indicating which position was cued before stimulus presentation
+* `cue_type` - validity of the cue ("valid", "invalid", or "neutral")
+* `real_target_position` - position that was actually tested (1, 2, or 3), indicating the post-cue
+* `start_ori` - starting orientation of the response line (degrees)
+* `resp_ori` - orientation reported by the participant (degrees)
+* `error` - signed error between response and target orientation (degrees)
+* `abs_err` - absolute error between response and target orientation (degrees)
+* `target_ori` - the actual orientation of the target Gabor patch (degrees)
+* `diff_to_next` - angular difference between the target orientation and the orientation of the next item in sequence (degrees)
+* `diff_to_prev` - angular difference between the target orientation and the orientation of the previous item in sequence (degrees)
+
+The key questions to address in your analysis include:
+
+1. How does cue validity (valid, invalid, neutral) affect orientation judgment accuracy?
+2. Is there an interaction between the initial cue position and the post-cue position?
+3. When attention must be shifted (invalid trials), is there an asymmetry in performance costs between forward shifts (attending to a later item than initially cued) versus backward shifts (attending to an earlier item)?
+
+Feel free to explore other questions as well! 
 
 ## Method
 
@@ -205,15 +235,6 @@ Participants then used the mouse to adjust the orientation of a response line to
 
 The experiment was divided into two blocks: a training block with 15 trials and a main block with 150 trials. Participants could take breaks between blocks and were provided with feedback about their overall performance.
 
-### Data Collection
-The experiment recorded the following data for each trial:
-- Trial parameters (target position, cue type)
-- Orientations of all three Gabor patches
-- Initial and post-cue sound files played
-- Response orientation
-- Angular error (difference between response and target orientations)
-- Score based on accuracy
-- Response time
 
 ## Results
 

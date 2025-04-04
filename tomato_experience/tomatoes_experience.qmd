@@ -265,7 +265,8 @@ tomatoes[,similarity_binf:=factor(similarity_bin)]
 tomatoes <- drop.empty.cols(tomatoes)
 tomatoes[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
 
-tomatoes <- tomatoes[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
+
+tomatoes <- tomatoes[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 
 tomatoes_out <- tomatoes[order(subject, trial_number),.(subject, trial_number, target_color, distr_color, left_color, right_color, left_sd,  right_sd, target_noise, distr_noise, noise, similarity_bin, resp_color,  rawError = error, realTargetColor, realErr, errorCorrected = be_c, is_outlier     )]
 fwrite(tomatoes_out, file = 'tomatoes.csv')
@@ -295,6 +296,15 @@ Read the report below and use it as a basis for your presentation. You can also 
 * `is_outlier` - binary indicator of whether the trial was identified as an outlier based on the error magnitude (0 = not an outlier, 1 = outlier)
 
 Note that in case of the averaging task what is target and what is distractor is determined randomly as people report the average color of the two items. This is why they are referred to as A and B in @fig-bias-analysis. 
+
+The key questions to address in your analysis include:
+
+1. How does task type (single item vs. averaging) affect color memory accuracy?
+2. How does the similarity between colors influence performance in both task types?
+3. How does the noise level (variability) in color patches affect how participants weight stimuli when computing averages?
+4. Is there an interaction between similarity and noise that affects performance or bias?
+
+Feel free to explore other questions as well! 
 
 # Methods
 

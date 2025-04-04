@@ -206,11 +206,9 @@ data_color[,c('startDate','endDate','result_id','avg_frame_time'):=NULL]
 
 setnafill(data_color, type = "locf", cols = c('window_height','window_width'))
 data_color <- drop.empty.cols(data_color)
-data_color <- data_color[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
-```
 
+data_color <- data_color[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 
-```{r}
 
 setnames(data_color,c('target_sd','distr_sd'), c('target_noise','distr_noise'), skip_absent = T)
 data_color[,abs_err:=abs(error)]
@@ -260,8 +258,50 @@ data_color[,bias_distr:=NULL]
 data_color[,similarity_binf:=factor(similarity_bin)]
 
 data_color <- data_color[is_outlier==F]
+data_color <- data_color[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
+
+fwrite(data_color[,.(participant, vviq, block, trial_number, similarity_bin, target_color, distr_color, td_dist, left_color, right_color, target_noise, distr_noise, target_x, distr_x, cue_n, cue_pos, cued_color, resp_color,  error, abs_err, noise, be_c, abs_be_c,  bias_to_distr_raw, bias_to_distr_corr     )], 'colors_and_imagery.csv')
 
 ```
+
+# Instructions
+
+Read the report and use it as a basis for your presentation. You can also download the preprocessed data from `colors_and_imagery.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+
+* `participant` - participant identifier (factor with levels "S1", "S2", etc.)
+* `vviq` - Visual Vividness Imagery Questionnaire score (higher scores indicate more vivid imagery)
+* `block` - block number (0 = training, 1-2 = main experimental blocks)
+* `trial_number` - trial number within the experiment
+* `similarity_bin` - angular distance between target and distractor colors in degrees (20°, 45°, or 135°)
+* `target_color` - the target color value in degrees (0-360°)
+* `distr_color` - the distractor color value in degrees (0-360°)
+* `td_dist` - difference between target and distractor colors in degrees
+* `left_color` - color value of the left stimulus in degrees
+* `right_color` - color value of the right stimulus in degrees
+* `target_noise` - noise level of the target stimulus (factor: "low" or "high")
+* `distr_noise` - noise level of the distractor stimulus (factor: "low" or "high")
+* `target_x` - x-coordinate of the target position (-300 for left, 300 for right)
+* `distr_x` - x-coordinate of the distractor position (-300 for left, 300 for right)
+* `cue_n` - cue number (1 = first report, 2 = second report)
+* `cue_pos` - position of the cue (-300 for left, 300 for right)
+* `cued_color` - the color value that was cued (the one to be reported) in degrees
+* `resp_color` - the color value reported by the participant in degrees
+* `error` - angular deviation between the target color and response color in degrees
+* `abs_err` - absolute value of the error in degrees
+* `noise` - combined noise condition from target and distractor (factor with 4 levels: "low - low", "high - low", "low - high", "high - high")
+* `be_c` - error after correction for individual biases (more reliable measure than raw error)
+* `abs_be_c` - absolute value of the bias-corrected error
+* `bias_to_distr_raw` - raw bias toward the distractor in degrees
+* `bias_to_distr_corr` - bias-corrected bias toward the distractor in degrees
+
+The study investigates the relationship between visual imagery ability (measured by VVIQ) and color memory performance. In particular, it examines how noise in the stimulus affects memory accuracy and whether this is moderated by individual differences in imagery ability. The key research questions are:
+
+1. How does noise level in the target and distractor stimuli affect color memory accuracy?
+2. Does imagery ability (VVIQ score) predict overall color memory performance?
+3. Does imagery ability predict how strongly performance is affected by noise?
+4. Does imagery ability predict how much performance degrades when reporting the second item compared to the first?
+
+Feel free to explore other questions as well! 
 
 # Method
 
@@ -295,8 +335,6 @@ Before starting the main experimental trials, participants completed 10 training
 Participants' performance was scored based on the angular deviation between their response and the target color, with higher scores awarded for more accurate responses.
 
 # Results
-
-
 
 ## Vividness of Visual Imagery Questionnaire
 

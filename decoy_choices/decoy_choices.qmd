@@ -145,7 +145,8 @@ unlink(paste0(temp_dir, "/*"))
 
 data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
 data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
-data <- data[, lapply(.SD, function(col) if (!all(col == col[1])) col else NULL)]
+data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
+
 ```
 
 ```{r}
@@ -184,6 +185,14 @@ Read the report below and use it as a basis for your presentation. You can also 
 * `correct` - whether the response was correct
 * `rt` - time (in seconds) required for the response
 
+The key questions to address in your analysis include:
+
+1. Does the presence of a decoy option influence participants' choices between target and competitor items?
+2. How does the presentation format (numeric vs. perceptual) affect the strength of the decoy effect?
+3. Is there a difference in the decoy effect when the decoy is related to the target versus when it's related to the competitor?
+4. Do response times differ based on which item is chosen and/or decoy placement?
+
+Feel free to explore other questions as well! 
 
 ## Method
 
@@ -216,13 +225,6 @@ On each trial, three options were presented simultaneously. Participants indicat
 
 The experiment was divided into blocks of 16 trials, with short breaks between blocks. During these breaks, participants received feedback on their performance, visualized as TVs they had "taken home" (correct choices) versus "missed" (incorrect choices). After completing all trials, a final performance summary was displayed before concluding the experiment.
 
-### Data Collection
-The experiment recorded the following data for each trial:
-- Trial parameters (condition, correct option, set type, decoy type, target-to-competitor difference, decoy reduction, decoy placement)
-- Participant response (1, 2, or 3)
-- Response accuracy (whether the participant selected the target option)
-- Response time
-- Positions and values of all options presented
 
 
 ## Descriptive statistics

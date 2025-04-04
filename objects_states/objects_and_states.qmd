@@ -154,13 +154,42 @@ unlink(paste0(temp_dir, "/*"))
 
 data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
 data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
-data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
+data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 descr_stats <- data[,.(corr = mean(correct), rt = mean(unique(rt_last)), binom_p = binom.test(sum(correct), .N)$p.value), by = participant]
 # data <- data[participant%in%descr_stats[binom_p<.05, participant]]
 
-fwrite(data, file = 'objects_and_states.csv')
+# Extract exemplar and state information from filenames
+data[, exemplar := as.integer(str_extract(final_img, "(?<=e)\\d+"))]
+data[, chosen_state := as.integer(str_extract(final_img, "(?<=s)\\d+"))]
+
+fwrite(data[,.(participant, trial_index, category, chosen_img = final_img, correct, tot_correct, rt_last, exemplar, chosen_state)], file = 'objects_and_states.csv')
 
 ```
+
+# Instructions
+
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `objects_and_states.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+
+* `participant` - random ID identifying a participant
+* `trial_index` - trial number within the experiment
+* `category` - object category (e.g., "locks", "lunchbox")
+* `chosen_img` - filename of the image chosen by the participant (contains exemplar and state information)
+* `correct` - whether the response was correct (1) or incorrect (0)
+* `tot_correct` - total number of correct responses for the trial (0, 1, or 2)
+* `rt_last` - response time for the trial in milliseconds
+* `exemplar` - which exemplar of the category (1 or 2)
+* `chosen_state` - which state was chosen by the participant (1 or 2)
+
+Note that in the filenames (e.g., "./Images/locks/e1_s2.jpg"), "e" refers to exemplar number and "s" refers to state number. For each trial, participants needed to choose the correct state for each of the two exemplars from a given category.
+
+The key questions to address in your analysis include:
+
+1. Is there evidence that object state and exemplar information are stored independently in visual memory?
+2. How well can participants remember which states go with which exemplars?
+3. Is there a difference in memory performance when objects are presented in the same state versus different states?
+4. What does the pattern of errors tell us about how visual information is stored in long-term memory?
+
+Feel free to explore other questions as well! 
 
 # Method
 
@@ -198,9 +227,6 @@ Performance was scored based on the number of correct selections (0, 1, or 2 per
 # Read the data
 data <- fread("objects_and_states.csv")
 
-# Extract exemplar and state information from filenames
-data[, exemplar := as.integer(str_extract(final_img, "(?<=e)\\d+"))]
-data[, chosen_state := as.integer(str_extract(final_img, "(?<=s)\\d+"))]
 
 # Set factor for participant ID
 data[, participant := factor(participant)]

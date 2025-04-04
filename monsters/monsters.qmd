@@ -163,7 +163,8 @@ unlink(paste0(temp_dir, "/*"))
 data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
 data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
 data <- drop.empty.cols(data)
-data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[1]))) col else NULL)]
+data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
+
 data[,expected_lengthf:=factor(expected_length )]
 data[,trial_i_within_blockf:=factor(trial_i_within_block )]
 data[,trial_i_within_block_rel:=trial_i_within_block-expected_length]
@@ -190,6 +191,15 @@ Read the report below and use it as a basis for your presentation. You can also 
 - `clicked_monster_id`: Index of the monster clicked by the participant (0 indicates the leader).
 - `correct`: Binary indicator of response accuracy (1 = correct, 0 = incorrect).
 - `rt`: Response time in milliseconds.
+
+The key questions to address in your analysis include:
+
+1. How does response time change as participants progress through a sequence of trials?
+2. Is there evidence of a "priming of pop-out" effect with faster responses after the first trial in a sequence?
+3. How does participants' performance change when sequences continue beyond their expected end point?
+4. Do expectation violations in one sequence affect performance on the next sequence?
+
+Feel free to explore other questions as well! 
 
 # Method
 
