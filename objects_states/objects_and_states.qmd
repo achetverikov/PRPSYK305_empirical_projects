@@ -9,7 +9,7 @@ knitr:
     cache: false
     fig.width: 7
     fig.asp: 0.5
-    fig.path: "figures_decoy/"
+    fig.path: "figures/"
     dpi: 320
     external: false
     res: 320
