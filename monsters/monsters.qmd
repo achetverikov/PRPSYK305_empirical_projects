@@ -10,7 +10,7 @@ knitr:
     fig.width: 7
     fig.asp: 0.5
     out.width: 100%
-    fig.path: "figures_monsters/"
+    fig.path: "figures/"
     dpi: 320
     external: false
     res: 320
@@ -23,6 +23,8 @@ editor_options:
 format: 
   html: 
     embed-resources: true
+post-render:
+  
 ---
 
 

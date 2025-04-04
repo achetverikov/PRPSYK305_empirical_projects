@@ -193,69 +193,39 @@ Performance was scored based on the number of correct selections (0, 1, or 2 per
 
 
 
-```{r}
-#| label: load-data
+```{r load_data}
 
 # Read the data
 data <- fread("objects_and_states.csv")
 
 # Extract exemplar and state information from filenames
 data[, exemplar := as.integer(str_extract(final_img, "(?<=e)\\d+"))]
-data[, state := as.integer(str_extract(final_img, "(?<=s)\\d+"))]
+data[, chosen_state := as.integer(str_extract(final_img, "(?<=s)\\d+"))]
 
 # Set factor for participant ID
 data[, participant := factor(participant)]
-
-# Summary stats
-num_participants <- length(unique(data$participant))
-num_categories <- length(unique(data$category))
-num_trials <- length(unique(data$trial_index))
-```
-
-
-## Accuracy in remembering exemplars
-
-```{r}
-#| label: exemplar-accuracy
-
-# Calculate overall accuracy
-mean_accuracy <- data[, mean(correct)]
-se_accuracy <- data[, sd(correct)/sqrt(.N)]
 
 # Calculate accuracy by participant
 accuracy_by_participant <- data[, .(acc = mean(correct)), by = participant]
 
 # t-test against chance (50%)
 t_test_result <- accuracy_by_participant[, t.test(acc, mu = 0.5)]
-```
-
-Overall accuracy in the exemplar-state task was  `r describe.mean.conf(accuracy_by_participant$acc*100)`%, which was significantly above chance level of 50%, `r describe.ttest(t_test_result)`.
-
-
-## Accuracy in remembering state
-```{r}
-#| label: process-data
 
 # First, determine the actual presented states based on chosen states and accuracy
 # If response is correct, presented state = chosen state
 # If response is incorrect, presented state = opposite state (assuming only 2 possible states)
-data[, presented_state := ifelse(correct == 1, state, 3 - state)]
+data[, presented_state := ifelse(correct == 1, chosen_state, 3 - chosen_state)]
 
 # Group data by trial to analyze pairs of responses
-trials_grouped <- data[, .(
-  exemplar_1 = .SD[exemplar == 1, exemplar],
-  exemplar_2 = .SD[exemplar == 2, exemplar],
-  chosen_state_1 = .SD[exemplar == 1, state],
-  chosen_state_2 = .SD[exemplar == 2, state],
-  presented_state_1 = .SD[exemplar == 1, presented_state],
-  presented_state_2 = .SD[exemplar == 2, presented_state],
-  correct_1 = .SD[exemplar == 1, correct],
-  correct_2 = .SD[exemplar == 2, correct]
-), by = .(participant, trial_index, category, tot_correct)]
+trials_grouped <- dcast(
+  data,
+  participant + trial_index + category + tot_correct ~ exemplar,
+  value.var = c( "chosen_state", "presented_state", "correct")
+)
 
 # Determine if the presented states were the same or different in the study phase
 trials_grouped[, same_presented_state := presented_state_1 == presented_state_2]
-
+trials_grouped[, same_presented_statef := factor(same_presented_state, labels = c("Different states", "Same state"))]
 # Determine if participant chose same states for both exemplars
 trials_grouped[, chose_same_state := chosen_state_1 == chosen_state_2]
 
@@ -272,12 +242,21 @@ trials_grouped[, response_type := factor(
     tot_correct == 1 ~ "One correct",
     tot_correct == 0 ~ "None correct"
   ), 
-  levels = c("Both correct", "One correct", "None correct")
+  levels = c(  "None correct","One correct","Both correct")
 )]
+
 ```
 
-```{r}
-#| label: state-memory
+
+## Accuracy in remembering exemplars
+
+Overall accuracy in the exemplar-state task was  `r describe.mean.conf(accuracy_by_participant$acc*100)`%, which was significantly above chance level of 50%, `r describe.ttest(t_test_result)`.
+
+
+## Accuracy in remembering state
+
+```{r state-memory}
+
 
 # Analyze if participants correctly remembered whether states were the same or different
 # For each trial, calculate if they chose same/different states when the presented states were same/different
@@ -286,7 +265,7 @@ trials_grouped[, response_type := factor(
 # grouped by whether the presented states were actually same or different
 same_state_data <- trials_grouped[, .(
   chose_same_state = mean(chose_same_state)
-), by = .(participant, same_presented_state)]
+), by = .(participant, same_presented_statef,same_presented_state)]
 
 # Reshape to compare conditions
 same_state_wide <- dcast(same_state_data, participant ~ same_presented_state, 
@@ -300,7 +279,7 @@ t_test_same_diff <- t.test(same_state_wide$same_state, same_state_wide$diff_stat
 same_state_means <- same_state_data[, .(
   mean_chose_same = mean(chose_same_state),
   se_chose_same = sd(chose_same_state)/sqrt(.N)
-), by = same_presented_state]
+), by = same_presented_statef]
 
 # Test against chance level (0.5)
 t_test_same_vs_chance <- t.test(same_state_wide$same_state, mu = 0.5)
@@ -311,19 +290,18 @@ t_test_diff_vs_chance <- t.test(same_state_wide$diff_state, mu = 0.5)
 #| label: fig-state-memory
 #| fig-cap: "Proportion of trials where participants chose the same state for both exemplars, based on whether the exemplars were actually presented in the same state or different states during study. Error bars represent standard errors of the mean."
 
-ggplot(same_state_means, aes(x = factor(same_presented_state, labels = c("Different states", "Same state")), 
+ggplot(same_state_means, aes(x = same_presented_statef, 
                             y = mean_chose_same)) +
-  geom_bar(stat = "identity", fill = default_colors[1], width = 0.5) +
-  geom_errorbar(aes(ymin = mean_chose_same - se_chose_same, 
+  geom_pointrange(aes(ymin = mean_chose_same - se_chose_same, 
                    ymax = mean_chose_same + se_chose_same), 
                width = 0.2) +
   geom_hline(yintercept = 0.5, linetype = "dashed") +
   labs(x = "Study Condition", 
-       y = "Proportion choosing same states") +
-  ylim(0, 1)
+       y = "Proportion choosing same states") 
+  
 ```
 
-Participants were able to discriminate between seeing exemplars in the same state versus different states. When exemplars were presented in the same state, participants were more likely to select the same state for both exemplars (`r f.round(same_state_means[same_presented_state == TRUE, mean_chose_same], 2)`), compared to when they were presented in different states (`r f.round(same_state_means[same_presented_state == FALSE, mean_chose_same], 2)`). This difference was significant, `r describe.ttest(t_test_same_diff)`.
+Participants were able to discriminate between seeing exemplars in the same state versus different states. When exemplars were presented in the same state, participants were more likely to select the same state for both exemplars (`r same_state_data[same_presented_state == TRUE, describe.mean.conf(chose_same_state)]`), compared to when they were presented in different states (`r  same_state_data[same_presented_state == F, describe.mean.conf(chose_same_state)]`). This difference was significant, `r describe.ttest(t_test_same_diff)`.
 
 ## Accuracy in exemplar-state binding
 
@@ -342,7 +320,6 @@ accuracy_by_participant <- trials_grouped[, .(accuracy = mean(tot_correct/2)),
 accuracy_wide <- dcast(accuracy_by_participant, participant ~ same_presented_state, 
                       value.var = "accuracy")
 setnames(accuracy_wide, c("participant", "diff_state", "same_state"))
-
 # Test if binding accuracy differs between conditions
 t_test_binding <- t.test(accuracy_wide$same_state, accuracy_wide$diff_state, paired = TRUE)
 
@@ -357,19 +334,15 @@ t_test_same_vs_chance <- t.test(accuracy_wide$same_state, mu = 0.5)
 
 ggplot(binding_accuracy, aes(x = factor(same_presented_state, labels = c("Different states", "Same state")), 
                             y = mean_accuracy)) +
-  geom_bar(stat = "identity", fill = default_colors[1], width = 0.5) +
-  geom_errorbar(aes(ymin = mean_accuracy - se_accuracy, 
+  geom_pointrange(aes(ymin = mean_accuracy - se_accuracy, 
                    ymax = mean_accuracy + se_accuracy), 
                width = 0.2) +
   geom_hline(yintercept = 0.5, linetype = "dashed") +
   labs(x = "Study Condition", 
-       y = "Proportion correct") +
-  ylim(0, 1)
+       y = "Proportion correct") 
 ```
 
-The key question is whether participants can correctly bind state information to exemplars. Participants were significantly better at remembering the state of each exemplar when the exemplars were shown in the same state (`r f.round(binding_accuracy[same_presented_state == TRUE, mean_accuracy], 2)`) compared to when they were shown in different states (`r f.round(binding_accuracy[same_presented_state == FALSE, mean_accuracy], 2)`), `r describe.ttest(t_test_binding)`.
-
-For exemplars studied in the same state, performance was significantly above chance, `r describe.ttest(t_test_same_vs_chance)`. However, when exemplars were studied in different states, performance was not significantly different from chance, `r describe.ttest(t_test_diff_vs_chance)`.
+The key question is whether participants bind state information to exemplars. Performance was significantly better than the chance level both when exemplars were studied in the same state (`r f.round(binding_accuracy[same_presented_state == TRUE, mean_accuracy])`, `r describe.ttest(t_test_same_vs_chance)` and when they were studied in different states (`r f.round(binding_accuracy[same_presented_state == FALSE, mean_accuracy])`, `r describe.ttest(t_test_diff_vs_chance)`), but there were no significant differences between the conditions (`r describe.ttest(t_test_binding)`).
 
 ```{r}
 #| label: fig-response-distribution
@@ -377,22 +350,25 @@ For exemplars studied in the same state, performance was significantly above cha
 
 # Calculate proportions of different response types by condition
 response_distribution <- trials_grouped[, .(
-  proportion = .N / sum(.N)
-), by = .(same_presented_state, response_type)]
-
+   .N 
+), by = .(same_presented_statef, response_type)]
+response_distribution[,prop:=N/sum(N)]
 # Plot the distribution of responses
 ggplot(response_distribution, 
-       aes(x = factor(same_presented_state, labels = c("Different states", "Same state")), 
-           y = proportion, 
-           fill = response_type)) +
-  geom_bar(stat = "identity", position = "stack") +
-  labs(x = "Study Condition", 
+       aes(x = response_type,
+           y = prop,
+           fill = same_presented_statef)) +
+  geom_bar(position = "dodge", stat='identity') +
+  labs(x = "Response", 
        y = "Proportion of trials", 
-       fill = "Response") +
-  scale_fill_brewer(palette = "Blues", direction = -1)
+       fill = "Study Condition") 
+
+t_res_ss <- trials_grouped[,mean(same_presented_state), by = .(participant,response_type)][,describe.ttest(t.test(V1, mu = 0.5)), by = response_type]
+
 ```
 
-To better understand the pattern of responses, we examined the distribution of trials where participants got both exemplars correct, one exemplar correct, or neither correct. In the same state condition, participants were more likely to get both items correct compared to the different state condition. The proportion of trials with one item correct was similar across both conditions, suggesting that the difference in overall accuracy was primarily driven by trials where participants either got both items correct or both incorrect.
+To better understand the pattern of responses, we examined the distribution of trials where participants got both exemplars correct, one exemplar correct, or neither correct (@fig-response-distribution). Only in the case of trials with no correct responses, we found that the proportion of trials differed from chance level between same state and different states condition (`r t_res_ss[response_type=='None correct', V1]`). In other words, when both items were presented in the same state, participants were slightly more likely to get at least one correct response. 
+
 ## References
 
 Brady, T. F., Konkle, T., Alvarez, G.A., and Oliva, A. (2013). Real-world objects are not represented as bound units: Independent forgetting of different object details from visual memory. Journal of Experimental Psychology: General, 142(3), 791-808.
