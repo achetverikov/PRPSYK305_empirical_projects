@@ -57,8 +57,7 @@ jobs:
           git config --local user.email "$GITHUB_ACTOR@users.noreply.github.com"
       
           # Add all necessary files
-          git add *.csv
-          git add *.html
+          git add *
       
           # Commit changes if there are any
           git commit -m 'Rendered markdown files' || echo "No changes to commit"

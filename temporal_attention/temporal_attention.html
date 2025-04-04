@@ -3209,6 +3209,34 @@ window.Quarto = {
 </header>
 
 
+<section id="instructions" class="level1">
+<h1>Instructions</h1>
+<p>Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from <code>temporal_attention.csv</code> and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:</p>
+<ul>
+<li><code>participant</code> - participant identifier (integer: 1-39)</li>
+<li><code>block</code> - experimental block (0-1)</li>
+<li><code>trial_number</code> - trial number within the experiment</li>
+<li><code>t1_ori</code> - orientation of the first Gabor patch (degrees)</li>
+<li><code>t2_ori</code> - orientation of the second Gabor patch (degrees)</li>
+<li><code>t3_ori</code> - orientation of the third Gabor patch (degrees)</li>
+<li><code>target_position</code> - initial cue position (1, 2, or 3), indicating which position was cued before stimulus presentation</li>
+<li><code>cue_type</code> - validity of the cue (“valid”, “invalid”, or “neutral”)</li>
+<li><code>real_target_position</code> - position that was actually tested (1, 2, or 3), indicating the post-cue</li>
+<li><code>start_ori</code> - starting orientation of the response line (degrees)</li>
+<li><code>resp_ori</code> - orientation reported by the participant (degrees)</li>
+<li><code>error</code> - signed error between response and target orientation (degrees)</li>
+<li><code>abs_err</code> - absolute error between response and target orientation (degrees)</li>
+<li><code>target_ori</code> - the actual orientation of the target Gabor patch (degrees)</li>
+<li><code>diff_to_next</code> - angular difference between the target orientation and the orientation of the next item in sequence (degrees)</li>
+<li><code>diff_to_prev</code> - angular difference between the target orientation and the orientation of the previous item in sequence (degrees)</li>
+</ul>
+<p>The key questions to address in your analysis include:</p>
+<ol type="1">
+<li>How does cue validity (valid, invalid, neutral) affect orientation judgment accuracy?</li>
+<li>Is there an interaction between the initial cue position and the post-cue position?</li>
+<li>When attention must be shifted (invalid trials), is there an asymmetry in performance costs between forward shifts (attending to a later item than initially cued) versus backward shifts (attending to an earlier item)?</li>
+</ol>
+<p>Feel free to explore other questions as well!</p>
 <section id="method" class="level2">
 <h2 class="anchored" data-anchor-id="method">Method</h2>
 <section id="participants" class="level3">
@@ -3234,10 +3262,6 @@ window.Quarto = {
 <p>Participants then used the mouse to adjust the orientation of a response line to match the orientation of the cued Gabor patch. After submitting their response by clicking, participants received feedback in the form of a score based on their accuracy. The score calculation rewarded precise orientation matching, with higher scores for smaller errors and penalties for large errors.</p>
 <p>The experiment was divided into two blocks: a training block with 15 trials and a main block with 150 trials. Participants could take breaks between blocks and were provided with feedback about their overall performance.</p>
 </section>
-<section id="data-collection" class="level3">
-<h3 class="anchored" data-anchor-id="data-collection">Data Collection</h3>
-<p>The experiment recorded the following data for each trial: - Trial parameters (target position, cue type) - Orientations of all three Gabor patches - Initial and post-cue sound files played - Response orientation - Angular error (difference between response and target orientations) - Score based on accuracy - Response time</p>
-</section>
 </section>
 <section id="results" class="level2">
 <h2 class="anchored" data-anchor-id="results">Results</h2>
@@ -3257,7 +3281,7 @@ Figure 1: Effect of cue type on orientation judgment accuracy
 </div>
 </div>
 </div>
-<p>The effect of cue type on accuracy was analyzed using a within-subject ANOVA with absolute error in orientation judgment as the dependent variable (<a href="#fig-cue-type-effect" class="quarto-xref">Figure 1</a>). The results show a clear effect of cue type: <em>F</em>(2, 64) = 17.69, <em>p</em> &lt; .001, <span class="math inline">\(\eta\)</span><sup>2</sup><sub>G</sub> = .10. On average, participants average absolute error was <em>M</em> = 33.73 [30.81, 36.98] with invalid cues, <em>M</em> = 31.98 [29.10, 35.04] with neutral cues, and <em>M</em> = 26.19 [22.33, 29.97] with valid cues (here and later the confidence intervals are reported in square brackets after the means).</p>
+<p>The effect of cue type on accuracy was analyzed using a within-subject ANOVA with absolute error in orientation judgment as the dependent variable (<a href="#fig-cue-type-effect" class="quarto-xref">Figure 1</a>). The results show a clear effect of cue type: <em>F</em>(2, 64) = 17.69, <em>p</em> &lt; .001, <span class="math inline">\(\eta\)</span><sup>2</sup><sub>G</sub> = .10. On average, participants average absolute error was <em>M</em> = 33.73 [30.80, 36.87] with invalid cues, <em>M</em> = 31.98 [28.89, 35.06] with neutral cues, and <em>M</em> = 26.19 [22.58, 29.60] with valid cues (here and later the confidence intervals are reported in square brackets after the means).</p>
 </section>
 <section id="effect-of-initial-cue-and-post-cue-on-accuracy" class="level3">
 <h3 class="anchored" data-anchor-id="effect-of-initial-cue-and-post-cue-on-accuracy">Effect of Initial Cue and Post-Cue on Accuracy</h3>
@@ -3282,6 +3306,7 @@ Figure 2: Effect of initial cue position and post-cue position on accuracy
 <li>A significant interaction effect: <em>F</em>(1, 32) = 15.85, <em>p</em> &lt; .001, <span class="math inline">\(\eta\)</span><sup>2</sup><sub>G</sub> = .14</li>
 </ul>
 <p>To examine whether performance drops more when people have to report the item at the position after the one that is cued (i.e., if there is a ‘refractory’ period for attention), we selected the trials where initial cue pointed at the 2nd position and the post-cue to the 1st or the 3rd position. We did not find any significant difference between these positions (<em>t</em>(63.6) = 0.41, <em>p</em> = .682).</p>
+</section>
 </section>
 </section>
 
