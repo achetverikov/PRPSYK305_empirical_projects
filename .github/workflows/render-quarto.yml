@@ -58,6 +58,7 @@ jobs:
       
           # Add all necessary files
           git add *.csv
+          
           git add *.html
       
           # Commit changes if there are any
