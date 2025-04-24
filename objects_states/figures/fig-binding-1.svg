@@ -122,10 +122,10 @@
 <g clip-path="url(#clip-0)">
 <path fill-rule="nonzero" fill="rgb(100%, 100%, 100%)" fill-opacity="1" d="M 43.957031 220.042969 L 499.019531 220.042969 L 499.019531 4.980469 L 43.957031 4.980469 Z M 43.957031 220.042969 "/>
 </g>
-<path fill="none" stroke-width="0.78534" stroke-linecap="butt" stroke-linejoin="round" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 168.0625 51.515625 L 168.0625 36.074219 "/>
 <path fill="none" stroke-width="0.78534" stroke-linecap="butt" stroke-linejoin="round" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 374.910156 29.40625 L 374.910156 14.757812 "/>
-<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" stroke-width="1.417323" stroke-linecap="round" stroke-linejoin="round" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 170.90625 43.796875 C 170.90625 47.585938 165.222656 47.585938 165.222656 43.796875 C 165.222656 40.003906 170.90625 40.003906 170.90625 43.796875 "/>
+<path fill="none" stroke-width="0.78534" stroke-linecap="butt" stroke-linejoin="round" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 168.0625 51.515625 L 168.0625 36.074219 "/>
 <path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" stroke-width="1.417323" stroke-linecap="round" stroke-linejoin="round" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 377.753906 22.082031 C 377.753906 25.871094 372.066406 25.871094 372.066406 22.082031 C 372.066406 18.292969 377.753906 18.292969 377.753906 22.082031 "/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" stroke-width="1.417323" stroke-linecap="round" stroke-linejoin="round" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 170.90625 43.796875 C 170.90625 47.585938 165.222656 47.585938 165.222656 43.796875 C 165.222656 40.003906 170.90625 40.003906 170.90625 43.796875 "/>
 <g clip-path="url(#clip-1)">
 <path fill="none" stroke-width="0.78534" stroke-linecap="butt" stroke-linejoin="round" stroke="rgb(68.627451%, 67.058824%, 67.058824%)" stroke-opacity="1" stroke-dasharray="3.141361 3.141361" stroke-miterlimit="10" d="M 43.957031 210.269531 L 499.019531 210.269531 "/>
 </g>
