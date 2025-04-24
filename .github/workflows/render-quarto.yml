@@ -11,7 +11,7 @@ permissions: read-all
 
 jobs:
   render-quatro:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest    
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     permissions:
@@ -21,7 +21,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      - name: Install curl devtools
+        run: |
+          sudo apt-get update
+          sudo apt-get install libcurl4-openssl-dev 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         
