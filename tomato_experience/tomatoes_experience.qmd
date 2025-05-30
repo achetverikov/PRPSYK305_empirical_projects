@@ -355,7 +355,7 @@ abs_error_anova <- ezANOVA(
 
 ```
 
-The repeated-measures ANOVA revealed an effect of the task type `r describe.ezanova(abs_error_anova, "task_type")` with participants performing better in the single-item report task compared to the averaging task. We also found an effect of the similarity bin `r describe.ezanova(abs_error_anova, "similarity_binf")`, indicating that participants' performance was affected by the similarity between target and distractor colors. The interaction effect was not significant, `r describe.ezanova(abs_error_anova, "task_type:similarity_bin")`.
+The repeated-measures ANOVA revealed an effect of the task type `r describe.ezanova(abs_error_anova, "task_type")` with participants performing better in the averaging task compared to the single-item report. We also found an effect of the similarity bin `r describe.ezanova(abs_error_anova, "similarity_binf")`, indicating that participants' performance was affected by the similarity between target and distractor colors. The interaction effect was not significant, `r describe.ezanova(abs_error_anova, "task_type:similarity_bin")`.
 
 
 ```{r}
