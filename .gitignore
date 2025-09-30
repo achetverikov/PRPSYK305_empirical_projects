@@ -51,3 +51,7 @@ po/*~
 rsconnect/
 
 setenv.R
+_environment.local
+
+/.quarto/
+/_*.local

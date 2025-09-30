@@ -259,7 +259,8 @@ trials_grouped[, chose_same_state := chosen_state_1 == chosen_state_2]
 # Overall accuracy by condition
 trials_grouped[, .(
   mean_accuracy = mean(tot_correct/2),
-  sem_accuracy = sd(tot_correct/2)/sqrt(.N)
+  sem_accuracy = sd(tot_correct/2)/sqrt(.N),
+  css = mean(chose_same_state)
 ), by = same_presented_state]
 
 # Categorize responses for analysis

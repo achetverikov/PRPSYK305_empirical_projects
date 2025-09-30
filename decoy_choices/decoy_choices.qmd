@@ -144,7 +144,7 @@ data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
 unlink(paste0(temp_dir, "/*"))
 
 data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
-data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
+# data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
 data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 
 ```

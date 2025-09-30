@@ -240,7 +240,7 @@ tomatoes[,subject:=naturalsort::naturalfactor(subject)]
 
 tomatoes[,.(.N, circ_sd_360(error, na.rm = T)), by = subject_id]
 db_res <- lapply(split(tomatoes[!is.na(error),], by = c('subject_id', 'task_type')), \(dt){
-  dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist'):=remove_cardinal_biases(error, realTargetColor, space = '360', plots = 'hide')[,c('be_c','is_outlier','pred','which_bin','shifted_x')], by = .(subject_id, task_type)]
+  dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist'):=circhelp::remove_cardinal_biases(error, realTargetColor, space = '360', plots = 'hide')[,c('be_c','is_outlier','pred','which_bin','shifted_x')], by = .(subject_id, task_type)]
   dt
 })
 
@@ -315,13 +315,13 @@ The experiment was conducted using a web-based platform built with jsPsych (vers
 
 Participants performed a color estimation task framed as quality control at a "magical tomato factory." On each trial, participants first viewed a central fixation circle (radius = 20 pixels) for 1000 ms. Subsequently, two 8 × 8 color patch stimuli (64 patches per stimulus) appeared simultaneously on the left and right sides of the screen for 1500 ms. Each stimulus measured 256 × 256 pixels, with individual patches sized at 32 × 32 pixels. Each stimulus contained patches with colors sampled from a normal distribution with a specified mean and standard deviation (either 5° or 20° in OKLCH color space). All colors were presented at a constant luminance (L = 50%) and chroma (C = 0.1), with only the hue parameter varying according to the experimental conditions. These color patches represented samples from two tomatoes.
 
-The mean hue of the target was selected randomly to ensure coverage across the full 360° color space. The mean hue of the distractor was determined by the similarity bin factor, with the distractor mean set at either 20°, 45°, or 135° (±3°) away from the target mean, with the direction (clockwise or counterclockwise) determined randomly.
+The mean hue of the left stimulus was selected randomly to ensure coverage across the full 360° color space. The mean hue of the right stimulus was determined by the similarity bin factor, with the distractor mean set at either 20°, 45°, or 135° (±3°) away from the target mean, with the direction (clockwise or counterclockwise) determined randomly.
 
 After a 500 ms memory delay, a response cue appeared for 500 ms, indicating which color the participant should report: the left tomato, right tomato, or the average color of both tomatoes. A color wheel (radius = 120 pixels, thickness = 20% of radius) then appeared around the corresponding tomato image(s). Participants selected a color by clicking on the wheel, with response time limited to 10 seconds per trial.
 
 In the training phase (10 trials), participants received extended feedback showing both their selected color and the correct target color. Stimulus presentation times gradually decreased during training. In the test phase, only a numerical score indicated performance accuracy without revealing the correct color.
 
-The experiment had a within-subjects factorial design with the following factors: target position (2 levels: left or right), target standard deviation (2 levels: 5° or 20°), distractor standard deviation (2 levels: 5° or 20°), similarity between target and distractor colors (3 levels: 20°, 45°, or 135°), and task type (2 levels: averaging task or single-item report task). The relative frequency distribution was structured such that participants performed the averaging task (reporting the average color of both stimuli) in 60% of trials and the single-item report task (reporting the color of either the right or left stimulus) in the remaining 40% of trials. For the single-item report task, the target was equally likely to appear on the left or right side. This distribution ensured greater emphasis on the averaging task compared to the single-item report task. The full factorial design with this distribution generated 360 unique experimental conditions, all of which were administered to each participant in the test phase. A mandatory rest period was provided at the midpoint of the experiment (after 50% of trials were completed) to mitigate potential fatigue effects.
+The experiment had a within-subjects factorial design with the following factors: target position (2 levels: left or right), target standard deviation (2 levels: 5° or 20°), distractor standard deviation (2 levels: 5° or 20°), similarity between target and non-target colors (3 levels: 20°, 45°, or 135°), and task type (2 levels: averaging task or single-item report task). The relative frequency distribution was structured such that participants performed the averaging task (reporting the average color of both stimuli) in 60% of trials and the single-item report task (reporting the color of either the right or left stimulus) in the remaining 40% of trials. For the single-item report task, the target was equally likely to appear on the left or right side. This distribution ensured greater emphasis on the averaging task compared to the single-item report task. The full factorial design with this distribution generated 360 unique experimental conditions, all of which were administered to each participant in the test phase. A mandatory rest period was provided at the midpoint of the experiment (after 50% of trials were completed) to mitigate potential fatigue effects.
 
 # Results
 
@@ -329,7 +329,6 @@ The experiment had a within-subjects factorial design with the following factors
 ```{r}
 #| fig-cap: "Mean absolute error in color reporting as a function of similarity bin and task type. Error bars represent within-subject 95% confidence intervals."
 #| label: fig-color-error
-
 # Create the plot with proper axis labels
 plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
                 aes(x = similarity_bin, y = abs_be_c, color = task_type), 
@@ -357,7 +356,19 @@ abs_error_anova <- ezANOVA(
 
 The repeated-measures ANOVA revealed an effect of the task type `r describe.ezanova(abs_error_anova, "task_type")` with participants performing better in the single-item report task compared to the averaging task. We also found an effect of the similarity bin `r describe.ezanova(abs_error_anova, "similarity_binf")`, indicating that participants' performance was affected by the similarity between target and distractor colors. The interaction effect was not significant, `r describe.ezanova(abs_error_anova, "task_type:similarity_bin")`.
 
+```{r}
 
+plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
+                aes(x = noise, y = abs_be_c, color = task_type), 
+                within_subj = TRUE, 
+                wid = 'subject', 
+                withinvars = c('task_type','noise')
+                ) +
+  labs(x = "Noise levels (target - non-target)", 
+       y = "Absolute Error (degrees)",
+       color = "Task Type") 
+
+```
 ```{r}
 #| fig-cap: "Bias in reported color in the averaging task as a function of similarity bin and noise level. Positive values indicate bias toward a stimulus A in a pair of stimuli A-B with noise levels shown as color. Because the average color is between A and B, bias towards A simultaneously indicates bias away from B and vice versa. Error bars represent within-subject 95% confidence intervals."
 #| label: fig-bias-analysis
@@ -365,7 +376,10 @@ The repeated-measures ANOVA revealed an effect of the task type `r describe.ezan
 # Calculate bias relative to target for averaging task
 tomatoes[!is.na(abs_err) & task_type=='averaging', 
          bias_rel_to_target := sign(angle_diff_360(target_color, realTargetColor)) * be_c]
+tomatoes[!is.na(abs_err) & task_type=='averaging', 
+         bias_rel_to_target_raw := sign(angle_diff_360(target_color, realTargetColor)) * realErr]
 
+tomatoes[task_type=='averaging',.(target_color, distr_color, realTargetColor,resp_color,realErr, bias_rel_to_target_raw,  bias_rel_to_target )]
 # Create the plot
 plot.pointrange(tomatoes[is_outlier==F & !is.na(abs_err) & task_type=='averaging',], 
                 aes(x = similarity_bin, color = noise, y = bias_rel_to_target), 

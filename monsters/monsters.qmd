@@ -227,8 +227,6 @@ The experiment was divided into blocks, with breaks provided after every 16 sequ
 
 At the end of the experiment, participants received a summary of their overall performance before submitting their data and completing the study.
 
-Based on your requests, I'll improve the results section by adding figure labels, enhancing axis labels, improving clarity, and fixing any grammar issues:
-
 ## Results
 
 ```{r}
