@@ -53,6 +53,7 @@ jobs:
           JATOS_TOMATO_STUDY_UID: ${{ secrets.JATOS_TOMATO_STUDY_UID }}
           JATOS_TEMP_ATT_STUDY_UID: ${{ secrets.JATOS_TEMP_ATT_STUDY_UID }}
           JATOS_MONSTERS_STUDY_UID: ${{ secrets.JATOS_MONSTERS_STUDY_UID }}
+          JATOS_START_DATE: ${{ vars.JATOS_START_DATE }}
           
       - name: Commit and Push Changes
         run: |
