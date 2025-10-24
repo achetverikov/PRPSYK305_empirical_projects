@@ -156,6 +156,8 @@ title_code_matching <- data.frame(
     "Automaticity"
   )
   )
+res[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
+res <- res[startDate>Sys.getenv("JATOS_START_DATE")]
 
 title_code_matching <- merge(res[,.N, by = study_name], title_code_matching, by = c('study_name'))
 
@@ -163,7 +165,6 @@ title_code_matching <- merge(res[,.N, by = study_name], title_code_matching, by 
 ```
 
 ```{r}
-
 # Set total target participants
 total_participants <- 48
 
