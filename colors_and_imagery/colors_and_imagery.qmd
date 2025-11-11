@@ -239,7 +239,6 @@ data_color[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean.nn
 #outliers 
 data_color<-data_color[participant%nin%data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant][V2>60|N<500, participant]]
 
-
 data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant]
 db_res <- lapply(split(data_color[!is.na(error),], by = c('participant', 'cue_n')), \(dt){
   dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist','mad_outlier'):=remove_cardinal_biases_discrete(error, similarity_bin, space = 360)[,c('be_c','is_outlier')], by = .(participant, cue_n)]
@@ -263,7 +262,6 @@ data_color <- data_color[is_outlier==F]
 data_color <- data_color[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 
 fwrite(data_color[,.(participant, vviq, block, trial_number, similarity_bin, target_color, distr_color, td_dist, left_color, right_color, target_noise, distr_noise, target_x, distr_x, cue_n, cue_pos, cued_color, resp_color,  error, abs_err, noise, be_c, abs_be_c,  bias_to_distr_raw, bias_to_distr_corr     )], 'colors_and_imagery.csv')
-
 ```
 
 # Instructions
@@ -308,7 +306,7 @@ Feel free to explore other questions as well!
 # Method
 
 ## Participants
-`r str_to_sentence(apastats:::numbers2words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(finished_study[,.N]-data_color[,lengthu(participant)]))` participant was excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
+`r str_to_sentence(apastats:::numbers2words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(finished_study[,.N]-data_color[,lengthu(participant)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
 
 ## Procedure
 Participants first completed a browser check to ensure their screen met the minimum requirements (1000 × 600 pixels) and were instructed to switch to fullscreen mode. They then received general instructions explaining the purpose of the study and were informed that they would complete a questionnaire followed by a memory task. Participants completed the Visual Vividness Imagery Questionnaire, after which they received detailed instructions for the color memory task. They then completed training on the color memory task followed by two experimental blocks with a short break halfway through each block.
@@ -363,7 +361,7 @@ The VVIQ scores were between `r min(data_vviq$vviq)` and `r max(data_vviq$vviq)`
 #| fig-cap: "Effect of target and distractor noise on color recall accuracy. Error bars represent 95% confidence intervals corrected for within-subject comparisons."
 #| fig-asp: 0.75
 
-plot.pointrange(data_color, aes(x = target_noise, 
+plot.pointrange(data_color[is_outlier==F], aes(x = target_noise, 
                                y = abs_be_c, 
                                color = distr_noise),
                within_subj = TRUE, 
@@ -396,26 +394,31 @@ A repeated-measures ANOVA indicated a significant effect of target noise `r desc
 #| fig-asp: 0.4
 
 # Prepare data summaries
-perf_vviq <- data_color[,.(mem_perf_bc = circ_sd_360(be_c), 
-                           bias_to_distr = circ_mean_360(bias_to_distr_corr)), 
+perf_vviq <- data_color[is_outlier==F,.(mem_perf_bc = circ_sd_360(be_c), 
+                           bias_to_distr = circ_mean_360(bias_to_distr_corr),
+                           .N), 
                         by = .(participant, vviq)]
 
-perf_vviq_by_cue_n <- data_color[,.(mem_perf_bc = circ_sd_360(be_c), 
+perf_vviq_by_cue_n <- data_color[is_outlier==F,.(mem_perf_bc = circ_sd_360(be_c), 
                                     bias_to_distr = circ_mean_360(bias_to_distr_corr)), 
                                  by = .(participant, vviq, cue_n)]
 
-perf_vviq_by_noise <- data_color[,.(mem_perf_bc = circ_sd_360(be_c), 
+perf_vviq_by_noise <- data_color[is_outlier==F,.(mem_perf_bc = circ_sd_360(be_c), 
                                     bias_to_distr = circ_mean_360(bias_to_distr_corr)), 
                                  by = .(participant, vviq, target_noise)]
+
+
+perf_vviq_out <- data_color[,.(mem_perf_n_out = mymean(is_outlier)),                                     
+                                 by = .(participant, vviq)]
 
 # Create derived measures
 delta_by_vviq <- dcast(perf_vviq_by_noise, 
                        participant+vviq~target_noise, 
-                       value.var = 'bias_to_distr')[,delta:=high-low]
+                       value.var = 'mem_perf_bc')[,delta:=high-low]
 
 delta_cue_n_by_vviq <- dcast(perf_vviq_by_cue_n, 
                             participant+vviq~cue_n, 
-                            value.var = 'bias_to_distr')[,delta:=`2`-`1`]
+                            value.var = 'mem_perf_bc')[,delta:=`2`-`1`]
 
 # Common theme for all plots
 
