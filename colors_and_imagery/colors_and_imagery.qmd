@@ -258,7 +258,7 @@ data_color[,noise_equal:=factor(distr_noise==target_noise, levels = c(F, T), lab
 data_color[,bias_distr:=NULL]
 data_color[,similarity_binf:=factor(similarity_bin)]
 
-data_color <- data_color[is_outlier==F]
+
 data_color <- data_color[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 
 fwrite(data_color[,.(participant, vviq, block, trial_number, similarity_bin, target_color, distr_color, td_dist, left_color, right_color, target_noise, distr_noise, target_x, distr_x, cue_n, cue_pos, cued_color, resp_color,  error, abs_err, noise, be_c, abs_be_c,  bias_to_distr_raw, bias_to_distr_corr     )], 'colors_and_imagery.csv')
@@ -290,6 +290,7 @@ Read the report and use it as a basis for your presentation. You can also downlo
 * `abs_err` - absolute value of the error in degrees
 * `noise` - combined noise condition from target and distractor (factor with 4 levels: "low - low", "high - low", "low - high", "high - high")
 * `be_c` - error after correction for individual biases (more reliable measure than raw error)
+* `is_outlier` - a boolean indicating whether the trial is an outlier to be excluded
 * `abs_be_c` - absolute value of the bias-corrected error
 * `bias_to_distr_raw` - raw bias toward the distractor in degrees
 * `bias_to_distr_corr` - bias-corrected bias toward the distractor in degrees

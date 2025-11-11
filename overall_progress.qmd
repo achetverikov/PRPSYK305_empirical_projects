@@ -166,14 +166,12 @@ title_code_matching <- merge(res[,.N, by = study_name], title_code_matching, by 
 
 ```{r}
 # Set total target participants
-total_participants <- 48
+total_participants <- 46+48
 
 # Calculate completion percentage for each study
 title_code_matching$completion_percentage <- round((title_code_matching$N / total_participants) * 100, 1)
 
 # Create a bar plot showing progress of each study
-
-
 
 # Create the progress bar plot
 progress_plot <- ggplot(title_code_matching, aes(y = reorder(short_title, N))) +
