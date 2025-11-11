@@ -358,19 +358,6 @@ abs_error_anova <- ezANOVA(
 The repeated-measures ANOVA revealed an effect of the task type `r describe.ezanova(abs_error_anova, "task_type")` with participants performing better in the averaging task compared to the single-item report. We also found an effect of the similarity bin `r describe.ezanova(abs_error_anova, "similarity_binf")`, indicating that participants' performance was affected by the similarity between target and distractor colors. The interaction effect was not significant, `r describe.ezanova(abs_error_anova, "task_type:similarity_bin")`.
 
 ```{r}
-
-plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
-                aes(x = noise, y = abs_be_c, color = task_type), 
-                within_subj = TRUE, 
-                wid = 'subject', 
-                withinvars = c('task_type','noise')
-                ) +
-  labs(x = "Noise levels (target - non-target)", 
-       y = "Absolute Error (degrees)",
-       color = "Task Type") 
-
-```
-```{r}
 #| fig-cap: "Bias in reported color in the averaging task as a function of similarity bin and noise level. Positive values indicate bias toward a stimulus A in a pair of stimuli A-B with noise levels shown as color. Because the average color is between A and B, bias towards A simultaneously indicates bias away from B and vice versa. Error bars represent within-subject 95% confidence intervals."
 #| label: fig-bias-analysis
 
@@ -382,16 +369,18 @@ tomatoes[!is.na(abs_err) & task_type=='averaging',
 
 tomatoes[task_type=='averaging',.(target_color, distr_color, realTargetColor,resp_color,realErr, bias_rel_to_target_raw,  bias_rel_to_target )]
 # Create the plot
-plot.pointrange(tomatoes[is_outlier==F & !is.na(abs_err) & task_type=='averaging',], 
+p <- plot.pointrange(tomatoes[is_outlier==F & !is.na(abs_err) & task_type=='averaging',], 
                 aes(x = similarity_bin, color = noise, y = bias_rel_to_target), 
                 within_subj = TRUE, 
-                wid = 'subject', 
+                wid = 'subject', custom_geom_before = geom_hline(yintercept = 0, linetype = 2),
                 design = 'w') +
-  geom_hline(yintercept = 0, linetype = 2)+
   labs(x = "Similarity Bin (degrees)", 
        y = "Bias Relative to A (degrees)",
        color = "Noise Level\n(Stim. A - Stim. B)")
 
+p
+
+# save_as_pptx(p, fname = 'fig-tomato-bias.pptx', plot_width = 10, plot_height = 5)
 # Run ANOVA on bias
 bias_anova <- ezANOVA(
   data = tomatoes[is_outlier==F & !is.na(abs_err) & task_type=='averaging',],
@@ -407,9 +396,7 @@ For the averaging task, we calculated a bias measure to determine whether partic
 The analysis of bias in the averaging task revealed that the effect of similarity bin was not significant, `r describe.ezanova(bias_anova, "similarity_bin")`, indicating that the similarity between the two colors alone did not systematically affect the direction of participants' errors. However, the effect of noise was significant, `r describe.ezanova(bias_anova, "noise")`, demonstrating that the variability in the color patches significantly influenced how participants weighted the stimuli when computing the average. Importantly, we found a significant interaction between similarity bin and noise, `r describe.ezanova(bias_anova, "similarity_bin:noise")`, indicating that the effect of noise on bias was moderated by the similarity between target and distractor colors. This interaction suggests that depending on the noise level, participants weighted the two stimuli differently when computing the average, with higher noise conditions potentially leading to more bias toward the more variable stimuli. 
 
 ```{r}
-
 #| label: explore-interaction
-
 # Compute mean and CI for each group
 mean_bias <- get_superb_ci(
   tomatoes[!is.na(abs_err) & is_outlier==F & task_type=='averaging'],   
@@ -428,8 +415,6 @@ mean_bias[, mean_ci_str := sprintf("_M_ = %.2f [%.2f, %.2f]",
 # Split by similarity bin and perform separate ANOVAs
 similarity_bins <- unique(tomatoes$similarity_binf)
 split_results <- lapply(split(tomatoes[!is.na(abs_err) & is_outlier==F & task_type=='averaging' ], by = 'similarity_bin'), function(dt) {
-  
-  
   ezANOVA(
     data = dt,
     dv = .(bias_rel_to_target),

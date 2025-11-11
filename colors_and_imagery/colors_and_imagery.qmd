@@ -317,7 +317,7 @@ Participants first completed a browser check to ensure their screen met the mini
 The experiment was implemented using jsPsych 7.3.4, a JavaScript library for conducting behavioral experiments in a web browser.
 
 ### Visual Vividness Imagery Questionnaire (VVIQ)
-Participants completed a shortened version of the Visual Vividness Imagery Questionnaire (Marks, 1973), which assessed their self-reported ability to form mental images. The VVIQ included four scenarios (out of the original eight): visualizing a relative or friend, a sunrise, a shop front, and a countryside scene, presented in random order. For each scenario, participants were presented with a screen containing all four specific visual details to rate simultaneously. Participants rated the vividness of each detail on a 5-point scale, from "No image at all, you only 'know' that you are thinking of the object" (1) to "Perfectly clear and as vivid as real seeing" (5). Higher scores indicated more vivid visual imagery.
+Participants completed a shortened version of the Visual Vividness Imagery Questionnaire (Marks, 1973), which assessed their self-reported ability to form mental images. The VVIQ included four scenarios (out of the original eight): visualizing a relative or friend, a sunrise, a shop front, and a countryside scene, presented in random order. For each scenario, participants were presented with a screen containing all four specific visual details to rate simultaneously. Participants rated the vividness of each detail on a 5-point scale, from "No image at all, you only 'know' that you are thinking of the object" (rating = 0) to "Perfectly clear and as vivid as real seeing" (rating = 4). Higher scores indicated more vivid visual imagery.
 
 ### Color Memory Task
 Participants performed a color memory task that required them to remember the colors of two simultaneously presented colored patches.
@@ -340,14 +340,14 @@ Participants' performance was scored based on the angular deviation between thei
 
 ## Vividness of Visual Imagery Questionnaire
 
-```{r vviq-distribution}
+```{r}
 #| label: fig-vviq
 #| fig-cap: "Distribution of Visual Vividness Imagery Questionnaire (VVIQ) scores across participants. Higher scores indicate more vivid self-reported visual imagery."
 #| fig-asp: 0.25
 
 ggplot(data_vviq, aes(x = vviq)) +
   geom_dotplot(binwidth = 1) +
-  coord_cartesian(xlim = c(20,80)) +
+  coord_cartesian(xlim = c(0,80)) +
   labs(x = 'VVIQ score', y = 'Count') +
   theme(axis.title.y = element_blank(), 
         axis.text.y = element_blank(), 
@@ -358,7 +358,7 @@ The VVIQ scores were between `r min(data_vviq$vviq)` and `r max(data_vviq$vviq)`
 
 ## Color recall accuracy
 
-```{r noise-effect}
+```{r}
 #| label: fig-noise-effect
 #| fig-cap: "Effect of target and distractor noise on color recall accuracy. Error bars represent 95% confidence intervals corrected for within-subject comparisons."
 #| fig-asp: 0.75
@@ -389,7 +389,7 @@ A repeated-measures ANOVA indicated a significant effect of target noise `r desc
 
 ## Does imagery score predict the recall accuracy?
 
-```{r vviq-correlations}
+```{r}
 #| label: fig-vviq-corr
 #| fig-cap: "Relationship between VVIQ scores and color memory performance. (A) Overall correlation between VVIQ and recall accuracy. (B) Correlation between VVIQ and the effect of target noise. (C) Correlation between VVIQ and the difference in performance between 2nd and 1st reported items."
 #| fig-width: 10
@@ -411,30 +411,31 @@ perf_vviq_by_noise <- data_color[,.(mem_perf_bc = circ_sd_360(be_c),
 # Create derived measures
 delta_by_vviq <- dcast(perf_vviq_by_noise, 
                        participant+vviq~target_noise, 
-                       value.var = 'mem_perf_bc')[,delta:=high-low]
+                       value.var = 'bias_to_distr')[,delta:=high-low]
 
 delta_cue_n_by_vviq <- dcast(perf_vviq_by_cue_n, 
                             participant+vviq~cue_n, 
-                            value.var = 'mem_perf_bc')[,delta:=`2`-`1`]
+                            value.var = 'bias_to_distr')[,delta:=`2`-`1`]
 
 # Common theme for all plots
 
+regression_method = lm
 # Plot 1: Overall correlation between VVIQ and recall accuracy
 p1 <- ggplot(perf_vviq, aes(x = vviq, y = mem_perf_bc)) +
   geom_point() +
-  geom_smooth(method = 'lm') +
+  geom_smooth(method = regression_method) +
   labs(x = "VVIQ score", y = "Memory performance\n(SD of errors)") 
   
 
 # Plot 2: Correlation between VVIQ and noise effect
 p2 <- ggplot(delta_by_vviq, aes(x = vviq, y = delta)) +
   geom_point() +
-  geom_smooth(method = 'lm') +
+  geom_smooth(method = regression_method) +
   labs(x = "VVIQ score", y = "Effect of noise\n(High - Low)") 
 # Plot 3: Correlation between VVIQ and delta between 1st and 2nd item performance
 p3 <- ggplot(delta_cue_n_by_vviq, aes(x = vviq, y = delta)) +
   geom_point() +
-  geom_smooth(method = 'lm') +
+  geom_smooth(method = regression_method) +
   labs(x = "VVIQ score", y = "Performance difference\n(2nd item - 1st item)") 
 
 # Combine plots with patchwork and add tags

@@ -255,7 +255,7 @@ t_res <- rbindlist(lapply(1:8, \(trial_i){
 t_test_1_vs_rest <- dcast(data[correct==1], participant ~ trial_i_within_block==1 , value.var = 'rt', fun = mean)[,t.test(`TRUE`,`FALSE`, paired = T)]
 ```
 
-We first confirmed a general 'priming of pop-out' effect. By comparing response time (RT) on each trial with the average of subsequent trials, we found significantly longer RT (`r describe.ttest(t_res)`) for the first trial in each sequence ('wave'). This indicates that participants needed more time to respond when a new sequence began. However, following the first trial, no significant differences were observed between any position and subsequent positions (all _p_ > `r min(t_res[2:8, unlist(p.value)])`). This suggests that performance quickly stabilized after the initial trial in each sequence.
+We first confirmed a general 'priming of pop-out' effect. By comparing response time (RT) on each trial with the average of subsequent trials, we found significantly longer RT (`r describe.ttest(t_res[1])`) for the first trial in each sequence ('wave'). This indicates that participants needed more time to respond when a new sequence began. However, following the first trial, no significant differences were observed between any position and subsequent positions (all _p_ > `r round.p(min(t_res[2:8, unlist(p.value)]), include.rel=F)`). This suggests that performance quickly stabilized after the initial trial in each sequence.
 
 ```{r}
 #| label: fig-bef_aft_exp_end
@@ -281,12 +281,13 @@ t_res1 <- rbindlist(lapply(1:2, \(trial_i){
   res_dt[,descr:= describe.ttest(res)]
   res_dt
 }))
-t_res2 <- rbindlist(lapply(1:2, \(trial_i){
-  data.table(t(unclass(data_exp[abs(trial_i_within_block_rel)==trial_i,mean.nn(rel_rt), by = participant][,t.test(V1)])))
+t_res2 <- rbindlist(lapply(c(-2,-1,1,2), \(trial_i){
+  data.table(t(unclass(data_exp[(trial_i_within_block_rel)==trial_i,mean.nn(rel_rt), by = participant][,t.test(V1)])))
 }))
+mean_rt_by_rel_pos <- data_exp[, .(rt= mean.nn(rel_rt)), by = .(participant,trial_i_within_block_rel)]
 ```
 
-We then tested how participants' expectations affect response times. To this end, we analyzed the trials preceding and following the expected end point in sequences that continued longer than expected. The response time at the expected end point (position = 0 in @fig-bef_aft_exp_end) was taken as the baseline. We found that RTs were numerically lower than the baseline in trials both preceding and following the expected end point, but this difference was not statistically significant (@fig-bef_aft_exp_end; `r describe.ttest(data_exp[,mean.nn(rel_rt), by = participant][,t.test(V1)])`). We also did not find any significant difference when comparing trials after versus before the expected end point (`r t_res1[,paste_and(descr)]` for the 1st and the 2nd trial relative to expected end, respectively).
+We then tested how participants' expectations affect response times. To this end, we analyzed the trials preceding and following the expected end point in sequences that continued longer than expected. The response time at the expected end point was taken as the baseline (for example, if the sequence was expected to end at the 5th trial, the RT for that trial would be the baseline for comparison for that sequence). We found that RTs were numerically lower than the baseline in trials preceding the expected end point (`r mean_rt_by_rel_pos[trial_i_within_block_rel==-1, describe.mean.conf(rt)]`) and numerically higher following the expected end point (`rmean_rt_by_rel_pos[trial_i_within_block_rel==1, describe.mean.conf(rt)]`). The difference between these trials was significant (`r t_res1[1,descr]`; position ±1 at @fig-bef_aft_exp_end) in contrast to trials further away from the expected end of the sequence (`r t_res1[2,descr]`; position ±2 at @fig-bef_aft_exp_end).
 
 ```{r}
 #| label: fig-rt_first

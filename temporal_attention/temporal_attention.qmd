@@ -209,7 +209,7 @@ Feel free to explore other questions as well!
 ## Method
 
 ### Participants
-The study has `r apastats:::numbers2words(data[,lengthu(participant)])` participants. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected in the experimental script, but participants were assigned unique identifiers (Prolific ID, study ID, and session ID) to track their data.
+`r stringr::str_to_sentence(apastats:::numbers2words(data[,lengthu(participant)]))` participants took part in this study. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
 
 ### Apparatus and Stimuli
 The experiment was programmed using jsPsych 7.3.4 (de Leeuw, 2015) with the psychophysics plugin (version 3.7.0). Stimuli consisted of Gabor patches (sinusoidal gratings with a Gaussian envelope) presented sequentially at the same location. Each Gabor patch had a spatial frequency of 0.05 cycles per pixel, a phase of 90°, a width of 300 pixels, and a contrast parameter of 10. The orientation of each Gabor patch was randomly determined for each trial, ranging from -90° to 90°.
@@ -218,6 +218,7 @@ Auditory cues consisted of four sound files: three pure tones at different frequ
 
 ### Design
 The experiment employed a within-subjects design with the following factors:
+
 - Target position (1, 2, 3): which of the three sequentially presented Gabor patches was the target
 - Cue type (neutral, valid, invalid): whether the initial cue validly or invalidly indicated the to-be-remembered target, or provided no specific information
 
@@ -228,9 +229,9 @@ The experiment began with an instruction screen explaining the task, followed by
 
 Prior to the main experiment, participants completed 15 training trials with gradually decreasing stimulus durations to familiarize themselves with the task.
 
-Each trial began with a fixation cross presented at the center of the screen. After 250 ms, participants heard an auditory cue and simultaneously saw a visual text cue ("1", "2", "3", or "all") indicating which of the upcoming visual patterns would be most important (this is a 'pre-cue'). The high-pitched tone indicated the first pattern, the mid-pitched tone indicated the second pattern, and the low-pitched tone indicated the third pattern. A mixed tone indicated that all patterns were equally important.
+Each trial began with a fixation cross presented at the center of the screen. After 250 ms, participants heard an auditory cue and simultaneously saw a visual text cue ("1", "2", "3", or "all") indicating which of the upcoming visual patterns would be most important (a 'pre-cue'). The high-pitched tone indicated the first pattern, the mid-pitched tone indicated the second pattern, and the low-pitched tone indicated the third pattern. A mixed tone indicated that all patterns were equally important.
 
-Following the cue, three Gabor patches were presented sequentially at the same location, with each patch displayed for 50 ms (during training, this duration started at 400 ms and gradually decreased) and separated by a 250 ms inter-stimulus interval. After all three patterns were presented and a delay of 500 ms, participants heard a second auditory cue (and saw the corresponding visual cue) that indicated which pattern's orientation they needed to report (this is called a 'post-cue').
+Following the cue, three Gabor patches were presented sequentially at the same location, with each patch displayed for 50 ms (during training, this duration started at 400 ms and gradually decreased) and separated by a 250 ms inter-stimulus interval. After all three patterns were presented and a delay of 500 ms, participants heard a second auditory cue (and saw the corresponding visual cue) that indicated which pattern's orientation they needed to report (a 'post-cue').
 
 Participants then used the mouse to adjust the orientation of a response line to match the orientation of the cued Gabor patch. After submitting their response by clicking, participants received feedback in the form of a score based on their accuracy. The score calculation rewarded precise orientation matching, with higher scores for smaller errors and penalties for large errors.
 
@@ -269,10 +270,10 @@ plot.pointrange(data,
                 y = "Absolute Error (degrees)")
 ```
 
-The effect of cue type on accuracy was analyzed using a within-subject ANOVA with absolute error in orientation judgment as the dependent variable (@fig-cue-type-effect). The results show a clear effect of cue type: `r describe.ezanova(cue_type_anova, 'cue_type')`. On average, participants average absolute error was `r data_descr[,describe.mean.conf(acc), by = .(cue_type)][,paste_and(sprintf('%s with %s cues', V1, cue_type))]` (here and later the confidence intervals are reported in square brackets after the means).
+The effect of a pre-cue type on accuracy was analyzed using a within-subject ANOVA with absolute error in orientation judgment as the dependent variable (@fig-cue-type-effect). The results show a clear effect of cue type: `r describe.ezanova(cue_type_anova, 'cue_type')`. On average, participants average absolute error was `r data_descr[,describe.mean.conf(acc), by = .(cue_type)][,paste_and(sprintf('%s with %s cues', V1, cue_type))]` (here and later the confidence intervals are reported in square brackets after the means).
 
 
-### Effect of Initial Cue and Post-Cue on Accuracy
+### Effect of Pre-Cue and Post-Cue on Accuracy
 
 ```{r cue-positions}
 #| label: fig-cue-positions
@@ -280,10 +281,13 @@ The effect of cue type on accuracy was analyzed using a within-subject ANOVA wit
 
 # For this analysis, target_position is the initial cue and real_target_position is the post-cue
 data[, initial_cue := target_position]
+
 data[, post_cue := real_target_position]
 data[, position_label := paste0(initial_cue, "→", post_cue)]
 data[, position_label := factor(position_label)]
-data[,position_label2:=paste0(initial_cue, "-", post_cue)]
+data[, position_label2:=paste0(initial_cue, "-", post_cue)]
+data[,initial_cue:=as.character(initial_cue)]
+data[cue_type=='neutral', initial_cue := 'neutral']
 # Run ANOVA for position effects (excluding neutral cues)
 position_anova <- ezANOVA(
   data = data[cue_type != "neutral"],
@@ -295,27 +299,53 @@ position_anova <- ezANOVA(
 
 
 # Plot the interaction using plot.pointrange
-plot.pointrange(data[cue_type != "neutral"], 
-                aes(x = initial_cue, y = abs_err, color = post_cue),
+plot.pointrange(data, 
+                aes(color = initial_cue, y = abs_err, x = post_cue),
                 within_subj = TRUE,
                 withinvars = c("initial_cue", "post_cue"),
                 wid = "participant",
                 pointsize = 3,
                 linesize = 1)+labs(
-                x = "Initial Cue", color = "Post-Cue", 
+                x = "Post-cue", color = "Pre-cue", 
                 y = "Absolute Error (degrees)") 
 
-
-pre_post <- data[initial_cue=='2'&post_cue!='2'&cue_type != "neutral"]
-pre_post_by_subj <- pre_post[,mean.nn(abs_err), by = .(participant, post_cue, cue_type)]
-ttest_descr <- describe.ttest(dcast(pre_post_by_subj, participant+cue_type~post_cue, fun=mean)[,t.test(`1`,`3`)])
+pre_post <- data[post_cue=='2'&initial_cue!='2'&cue_type != "neutral"]
+pre_post_by_subj <- pre_post[,mean.nn(abs_err), by = .(participant, post_cue, initial_cue)]
+ttest_descr <- describe.ttest(dcast(pre_post_by_subj, participant~initial_cue, fun=mean)[,t.test(`1`,`3`, paired = T)])
 
 ```
 
-The effects of initial cue position and post-cue position were analyzed using a within-subject ANOVA (@fig-cue-positions). The results showed:
+The effects of initial cue position and post-cue position were analyzed using a within-subject ANOVA (@fig-cue-positions) after excluding the trials where the first cue was neutral. The results showed:
 
-* no significant main effect of initial cue position: `r describe.ezanova(position_anova, 'initial_cue')`
-* no significant main effect of post-cue position: `r describe.ezanova(position_anova, 'post_cue')`
-* A significant interaction effect: `r describe.ezanova(position_anova, 'initial_cue:post_cue')`
+* a significant main effect of initial cue position: `r describe.ezanova(position_anova, 'initial_cue')`
+* a significant main effect of post-cue position: `r describe.ezanova(position_anova, 'post_cue')`
+* a significant interaction effect: `r describe.ezanova(position_anova, 'initial_cue:post_cue')`
 
-To examine whether performance drops more when people have to report the item at the position after the one that is cued (i.e., if there is a 'refractory' period for attention), we selected the trials where initial cue pointed at the 2nd position and the post-cue to the 1st or the 3rd position. We did not find any significant difference between these positions (`r ttest_descr`). 
+To examine whether performance drops more when people have to report the item at the position after the one that is cued (i.e., if there is a 'refractory' period for attention), we selected the trials where participants reported the target at position 2 and the pre-cue pointed to the 1st or the 3rd position. We found that after being cued to position 1, participants' reports for the second target suffered more, than when they were initially cued to position 3 (`r ttest_descr`). 
+
+```{r}
+#| label: fig-benefit
+#| fig-cap: "Cost and Benefit Indices for Temporal Attention"
+costs_benefits <- dcast(data[,.(perf = mean.nn(abs_err)), by = .(participant, cue_type, initial_cue)], participant+initial_cue~cue_type)
+costs_benefits[, cost_index := (neutral-invalid)/(valid-invalid)]
+costs_benefits[, benefit_index := (valid-neutral)/(valid-invalid)]
+
+costs_benefits <- melt(costs_benefits, id.vars = c('participant', 'initial_cue'), measure.vars = c('cost_index', 'benefit_index')) 
+
+cb_tt <- costs_benefits[,describe.ttest(t.test(value)), by = .(variable, initial_cue)]
+plot.pointrange(aes(x = initial_cue, y = value, color = variable), 
+                  within_subj = TRUE,
+                  design = 'w',
+                  wid = "participant",
+                  custom_geom_before = list(gg_crosshair(yint = 0)),
+                  pointsize = 3,
+                  linesize = 1) + labs(
+                    x = "Initial Cue Position", color = "Index Type",
+                    y = "Cost/Benefit Index"
+                  )
+
+
+```
+
+Finally, we repeated the cost-benefit analysis introduced by Denison et al. (2017). As @fig-benefit shows, the results were relatively noisy in case when pre-cue was 1 or 2, and only for the last target we found reliable costs (`r cb_tt[variable=='cost_index'&initial_cue=='3', V1]`).
+

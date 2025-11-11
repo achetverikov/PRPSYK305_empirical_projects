@@ -199,7 +199,7 @@ The experiment followed the design of Utochkin & Brady (2020, Exp. 1, Exemplar-s
 
 ## Participants
 
-`r apastats:::numbers2words(descr_stats[,.N])` participants were recruited to take part in an online experiment. None of the participants were excluded.  Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
+`r stringr::str_to_sentence(apastats:::numbers2words(descr_stats[,.N]))` participants were recruited to take part in an online experiment. None of the participants were excluded.  Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
 
 ## Apparatus and Stimuli
 
@@ -330,7 +330,7 @@ ggplot(same_state_means, aes(x = same_presented_statef,
   
 ```
 
-Participants were able to discriminate between seeing exemplars in the same state versus different states. When exemplars were presented in the same state, participants were more likely to select the same state for both exemplars (`r same_state_data[same_presented_state == TRUE, describe.mean.conf(chose_same_state)]`), compared to when they were presented in different states (`r  same_state_data[same_presented_state == F, describe.mean.conf(chose_same_state)]`). This difference was significant, `r describe.ttest(t_test_same_diff)`.
+Participants were able to discriminate between seeing exemplars in the same state versus different states. When exemplars were presented in the same state, participants were more likely to select the same state for both exemplars (`r same_state_data[same_presented_state == TRUE, describe.mean.conf(chose_same_state)]`), compared to when they were presented in different states (`r  same_state_data[same_presented_state == F, describe.mean.conf(chose_same_state)]`, `r describe.ttest(t_test_same_diff)`).
 
 ## Accuracy in exemplar-state binding
 
@@ -371,7 +371,7 @@ ggplot(binding_accuracy, aes(x = factor(same_presented_state, labels = c("Differ
        y = "Proportion correct") 
 ```
 
-The key question is whether participants bind state information to exemplars. Performance was significantly better than the chance level both when exemplars were studied in the same state (`r f.round(binding_accuracy[same_presented_state == TRUE, mean_accuracy])`, `r describe.ttest(t_test_same_vs_chance)` and when they were studied in different states (`r f.round(binding_accuracy[same_presented_state == FALSE, mean_accuracy])`, `r describe.ttest(t_test_diff_vs_chance)`), but there were no significant differences between the conditions (`r describe.ttest(t_test_binding)`).
+The key question is whether participants bind state information to exemplars. Performance was significantly better than the chance level both when exemplars were studied in the same state (`r f.round(binding_accuracy[same_presented_state == TRUE, mean_accuracy])`, `r describe.ttest(t_test_same_vs_chance)` and when they were studied in different states (`r f.round(binding_accuracy[same_presented_state == FALSE, mean_accuracy])`, `r describe.ttest(t_test_diff_vs_chance)`) with a small but significant difference between the two (`r describe.ttest(t_test_binding)`).
 
 ```{r}
 #| label: fig-response-distribution
