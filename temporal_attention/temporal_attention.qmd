@@ -326,26 +326,28 @@ To examine whether performance drops more when people have to report the item at
 ```{r}
 #| label: fig-benefit
 #| fig-cap: "Cost and Benefit Indices for Temporal Attention"
-costs_benefits <- dcast(data[,.(perf = mean.nn(abs_err)), by = .(participant, cue_type, initial_cue)], participant+initial_cue~cue_type)
-costs_benefits[, cost_index := (neutral-invalid)/(valid-invalid)]
-costs_benefits[, benefit_index := (valid-neutral)/(valid-invalid)]
+costs_benefits <- dcast(data[,.(perf = mean.nn(abs_err)), by = .(participant, cue_type, post_cue)], participant+post_cue~cue_type)
+costs_benefits[, cost_index := -(neutral-invalid)/(valid-invalid)]
+costs_benefits[, benefit_index := -(valid-neutral)/(valid-invalid)]
+costs_benefits[post_cue==2,t.test(neutral,invalid, paired  = T)]
 
-costs_benefits <- melt(costs_benefits, id.vars = c('participant', 'initial_cue'), measure.vars = c('cost_index', 'benefit_index')) 
-
-cb_tt <- costs_benefits[,describe.ttest(t.test(value)), by = .(variable, initial_cue)]
-plot.pointrange(aes(x = initial_cue, y = value, color = variable), 
+costs_benefits <- melt(costs_benefits, id.vars = c('participant', 'post_cue'), measure.vars = c('cost_index', 'benefit_index')) 
+costs_benefits[post_cue==1]
+costs_benefits[,index_type := ifelse(variable=='cost_index', 'cost', 'benefit')]
+cb_tt <- costs_benefits[,describe.ttest(t.test(value)), by = .(variable, post_cue)]
+plot.pointrange(costs_benefits, aes(x = post_cue, y = value, color = index_type), 
                   within_subj = TRUE,
                   design = 'w',
                   wid = "participant",
                   custom_geom_before = list(gg_crosshair(yint = 0)),
                   pointsize = 3,
                   linesize = 1) + labs(
-                    x = "Initial Cue Position", color = "Index Type",
+                    x = "Reported target", color = "Index Type",
                     y = "Cost/Benefit Index"
                   )
 
 
 ```
 
-Finally, we repeated the cost-benefit analysis introduced by Denison et al. (2017). As @fig-benefit shows, the results were relatively noisy in case when pre-cue was 1 or 2, and only for the last target we found reliable costs (`r cb_tt[variable=='cost_index'&initial_cue=='3', V1]`).
+Finally, we repeated the cost-benefit analysis introduced by Denison et al. (2017). As @fig-benefit shows, for target 1 and 3, there were reliable costs (`r cb_tt[variable=='cost_index'&post_cue%in%c(1,3), paste_and(V1)]`) along with some benefits that did not reach significance (`r cb_tt[variable=='benefit_index'&post_cue%in%c(1,3), paste_and(V1)]`). No signficant effects were found for target 2 in this type of analysis.
 
