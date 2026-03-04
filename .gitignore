@@ -55,3 +55,6 @@ _environment.local
 
 /.quarto/
 /_*.local
+
+*docx
+*methods*html

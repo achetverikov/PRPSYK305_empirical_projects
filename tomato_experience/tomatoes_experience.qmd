@@ -129,7 +129,7 @@ setDT(finished_study_ids)
 finished_study_ids[,id:=as.character(id)]
 finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
 finished_study_ids[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
-finished_study_ids <- finished_study_ids[startDate>Sys.getenv("JATOS_START_DATE")]
+# finished_study_ids <- finished_study_ids[startDate>Sys.getenv("JATOS_START_DATE")]
 
 comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
   dt <- as.data.table(metadata$componentResults[[x]])
@@ -251,10 +251,23 @@ tomatoes <- tomatoes[!is.na(abs_err)&is_outlier==F]
 
 ```{r}
 tomatoes[is_outlier==F&abs_err>90, is_outlier:=T]
-# tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean.nn(is_outlier), mean_abs_err= mean.nn(abs_err)), keyby = .(subject_id,task_type)][,mean.nn(share_outliers), by = task_type]
-
 tomatoes[,bias_to_distr_corr:=sign(td_dist)*be_c]
 tomatoes[,bias_to_distr_raw:=sign(td_dist)*error]
+
+tomatoes[!is.na(abs_err) & task_type=='averaging', 
+         bias_rel_to_low_noise := sign(angle_diff_360(ifelse(target_noise=='low'&distr_noise=='high', target_color, ifelse(target_noise=='high'&distr_noise=='low', distr_color, NA)), realTargetColor)) * be_c]
+
+aggr_stats <- tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean.nn(is_outlier), mean_abs_err= mean.nn(abs_err), bias_to_distr_corr = circ_mean_360(bias_to_distr_corr[target_noise==distr_noise]), bias_rel_to_low_noise = circ_mean_360(bias_rel_to_low_noise, na.rm = T)), keyby = .(subject, task_type = factor(task_type, levels = c('single item','averaging'), labels = c('single_item','averaging')))]#[,mean.nn(share_outliers), by = task_type]
+
+
+plot.pointrange(tomatoes[is_outlier==F&task_type!='averaging'], aes(x = similarity_binf, y = bias_to_distr_corr, color = target_noise), wid  = 'subject', design = 'w', withinvars  = c('noise_equal') )+facet_grid(~noise_equal)
+aggr_stats <- dcast(aggr_stats, subject~task_type, value.var = c('circ_sd','circ_sd_correct','n_by_subj','n_nonmissing','share_outliers','mean_abs_err','bias_to_distr_corr','bias_rel_to_low_noise'))
+ggplot(aggr_stats, aes(x = `bias_rel_to_low_noise_averaging`, y = bias_to_distr_corr_single_item))+
+  geom_point()+
+  geom_vline(xintercept = 0, linetype = 2)+geom_hline(yintercept = 0, linetype = 2)+
+  geom_abline(slope = 1, intercept = 0, linetype = 2)
+  # labs(x = 'Circular SD Single Item (degrees)', y = 'Circular SD Averaging (degrees)')
+aggr_stats[,apastats2::apa(cor.test(bias_rel_to_low_noise_averaging,bias_to_distr_corr_single_item))]
 
 tomatoes[,abs_be_c:=abs(be_c)]
 tomatoes[,avg_abs_err:=mean.nn(abs(be_c)), by = subject_id]
@@ -297,32 +310,12 @@ Read the report below and use it as a basis for your presentation. You can also 
 
 Note that in case of the averaging task what is target and what is distractor is determined randomly as people report the average color of the two items. This is why they are referred to as A and B in @fig-bias-analysis. 
 
-The key questions to address in your analysis include:
-
-1. How does task type (single item vs. averaging) affect color memory accuracy?
-2. How does the similarity between colors influence performance in both task types?
-3. How does the noise level (variability) in color patches affect how participants weight stimuli when computing averages?
-4. Is there an interaction between similarity and noise that affects performance or bias?
-
-Feel free to explore other questions as well! 
-
 # Methods
 
 ## Participants
 `r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]-tomatoes[,lengthu(subject)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
 
-## Apparatus, Stimuli, and Procedure
-The experiment was conducted using a web-based platform built with jsPsych (version 7.3.2). Stimuli were presented on participants' personal displays with a minimum required resolution of 1000 × 600 pixels, verified via browser-check.
-
-Participants performed a color estimation task framed as quality control at a "magical tomato factory." On each trial, participants first viewed a central fixation circle (radius = 20 pixels) for 1000 ms. Subsequently, two 8 × 8 color patch stimuli (64 patches per stimulus) appeared simultaneously on the left and right sides of the screen for 1500 ms. Each stimulus measured 256 × 256 pixels, with individual patches sized at 32 × 32 pixels. Each stimulus contained patches with colors sampled from a normal distribution with a specified mean and standard deviation (either 5° or 20° in OKLCH color space). All colors were presented at a constant luminance (L = 50%) and chroma (C = 0.1), with only the hue parameter varying according to the experimental conditions. These color patches represented samples from two tomatoes.
-
-The mean hue of the left stimulus was selected randomly to ensure coverage across the full 360° color space. The mean hue of the right stimulus was determined by the similarity bin factor, with the distractor mean set at either 20°, 45°, or 135° (±3°) away from the target mean, with the direction (clockwise or counterclockwise) determined randomly.
-
-After a 500 ms memory delay, a response cue appeared for 500 ms, indicating which color the participant should report: the left tomato, right tomato, or the average color of both tomatoes. A color wheel (radius = 120 pixels, thickness = 20% of radius) then appeared around the corresponding tomato image(s). Participants selected a color by clicking on the wheel, with response time limited to 10 seconds per trial.
-
-In the training phase (10 trials), participants received extended feedback showing both their selected color and the correct target color. Stimulus presentation times gradually decreased during training. In the test phase, only a numerical score indicated performance accuracy without revealing the correct color.
-
-The experiment had a within-subjects factorial design with the following factors: target position (2 levels: left or right), target standard deviation (2 levels: 5° or 20°), distractor standard deviation (2 levels: 5° or 20°), similarity between target and non-target colors (3 levels: 20°, 45°, or 135°), and task type (2 levels: averaging task or single-item report task). The relative frequency distribution was structured such that participants performed the averaging task (reporting the average color of both stimuli) in 60% of trials and the single-item report task (reporting the color of either the right or left stimulus) in the remaining 40% of trials. For the single-item report task, the target was equally likely to appear on the left or right side. This distribution ensured greater emphasis on the averaging task compared to the single-item report task. The full factorial design with this distribution generated 360 unique experimental conditions, all of which were administered to each participant in the test phase. A mandatory rest period was provided at the midpoint of the experiment (after 50% of trials were completed) to mitigate potential fatigue effects.
+{{< include tomatoes_experience_methods.md >}}
 
 # Results
 
