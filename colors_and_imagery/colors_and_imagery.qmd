@@ -109,6 +109,11 @@ randstring <- function(n = 5000) {
   paste0(a, sprintf("%04d", sample(9999, n, TRUE)), sample(LETTERS, n, TRUE))
 }
 
+
+```
+
+```{r}
+#| label: load_data
 data_list <- list()
 study_uid <- Sys.getenv('JATOS_COLORS_AND_IMAGERY_STUDY_UID')
 
@@ -228,16 +233,20 @@ data_color[,distr_color:=angle_diff_360(distr_color,0)]
 data_color <- unique(data_color)
 data_color[!is.na(error),n_by_subj:=.N, by = participant]
 data_color[!is.na(error),n_by_block:=.N, by = .(block, participant)]
-
+data_color[participant=='S1']
 data_color[, abs_td_dist:=abs(td_dist)]
 data_color[,target_color:=angle_diff_360(target_color, 0)]
 data_color[,similarity_binf:=factor(similarity_bin)]
 data_color[,noise:=interaction(target_noise, distr_noise, sep = ' - ')]
-data_color[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(participant)]
-data_color[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean.nn(abs_err)), keyby = .(  participant)]
+data_color[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),  mean_abs_err= mean.nn(abs_err), n_non_missing_by_subj = n_by_subj[!is.na(error)][1], missed_responses = sum(is.na(error))), keyby = .(participant)]
+
+```
+
+```{r}
+#| label: data_prep_outliers
 
 #outliers 
-data_color<-data_color[participant%nin%data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant][V2>60|N<500, participant]]
+data_color<-data_color[participant%nin%data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant][V2>60|N<250, participant]]
 
 data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant]
 db_res <- lapply(split(data_color[!is.na(error),], by = c('participant', 'cue_n')), \(dt){
@@ -409,7 +418,7 @@ perf_vviq_by_noise <- data_color[is_outlier==F,.(mem_perf_bc = circ_sd_360(be_c)
                                  by = .(participant, vviq, target_noise)]
 
 
-perf_vviq_out <- data_color[,.(mem_perf_n_out = mymean(is_outlier)),                                     
+perf_vviq_out <- data_color[,.(mem_perf_n_out = mean.nn(is_outlier)),                                     
                                  by = .(participant, vviq)]
 
 # Create derived measures

@@ -203,7 +203,7 @@ Feel free to explore other questions as well!
 # Method
 
 ## Participants
-`r str_to_sentence(apastats:::numbers2words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(finished_study[,.N]-data[,lengthu(participant)]))` participant was excluded because they had zero correct responses. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
+`r str_to_sentence(apastats:::numbers2words(finished_study_ids[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(finished_study_ids[,.N]-data[,lengthu(participant)]))` participant was excluded because they had zero correct responses. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
 
 ## Apparatus and Stimuli
 The experiment was programmed using jsPsych 7.3.4 with the psychophysics plugin (version 3.7.0). Stimuli consisted of colored monster-shaped figures displayed on a gray background within an 800 × 800 pixel canvas. Each monster was drawn using SVG path data with an initial width of 96 pixels and height of 88 pixels, and filled with a color represented in the OKLCH color space, with hue values ranging from 0° to 360° while maintaining constant luminance (50%) and chroma (0.1). The monsters were positioned randomly within a 600 × 400 pixel area centered on the screen (from -300 to +300 horizontally and -200 to +200 vertically), with a minimum distance of 120 pixels between them to ensure visibility.
