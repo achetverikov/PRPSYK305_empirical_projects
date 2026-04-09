@@ -153,9 +153,8 @@ comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
 flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
 flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
 # on the next line, one id is manually excluded as this participant did the vviq part twice, so we use the latest result
-flist_vviq <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId=='29868'&id!='1067177',id]]
-flist_colors <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId!='29868',id]]
-
+flist_vviq <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId%in%c('29868','40213')&id!='1067177',id]]
+flist_colors <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId%nin%c('29868','40213'),id]]
 
 data_vviq <- rbindlist(lapply(c(flist_vviq), \(x){
   data <- read_json(x)
