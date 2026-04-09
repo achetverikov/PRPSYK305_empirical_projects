@@ -28,7 +28,7 @@ format:
 
 ```{r setup}
 library(httr)
-library(apastats)
+library(apastats2)
 library(data.table)
 library(jsonlite)
 library(stringr)
@@ -194,7 +194,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 ## Method
 
 ### Participants
-`r data_out[,apastats:::numbers2words(lengthu(participant))]` participants  were recruited to take part in an online experiment. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
+`r data_out[,xfun::numbers_to_words(lengthu(participant))]` participants  were recruited to take part in an online experiment. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
 
 {{< include decoy_choices_methods.md >}}
 
@@ -204,7 +204,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 data_descr <- data_out[,.(.N, mean_RT = mean(rt)), keyby = .(participant, decoy_present = decoy_on!='no_decoy', chosen_item)][,.(chosen_item, decoy_present, prop_choices = 100*N/sum(N), mean_RT), by = participant]
 ```
 
-On average, participants chose `r data_descr[decoy_present==T,describe.mean.conf(prop_choices), by = .(chosen_item)][,paste_and(sprintf('%ss in %s', chosen_item, V1))]`% of trials (here and later the confidence intervals are reported in square brackets after the means) when a decoy was present.  Response times were `r data_descr[decoy_present==T,describe.mean.conf(mean_RT), by = .(chosen_item)][,paste_and(V1)]`, respectively. When the decoy was absent, participants chose `r data_descr[decoy_present==F,describe.mean.conf(prop_choices), by = .(chosen_item)][,paste_and(sprintf('%ss in %s', chosen_item, V1))]`% of trials with response times of `r data_descr[decoy_present==F,describe.mean.conf(mean_RT), by = .(chosen_item)][,paste_and(V1)]`.
+On average, participants chose `r data_descr[decoy_present==T,apa_mean_conf(prop_choices), by = .(chosen_item)][,paste_and(sprintf('%ss in %s', chosen_item, V1))]`% of trials (here and later the confidence intervals are reported in square brackets after the means) when a decoy was present.  Response times were `r data_descr[decoy_present==T,apa_mean_conf(mean_RT), by = .(chosen_item)][,paste_and(V1)]`, respectively. When the decoy was absent, participants chose `r data_descr[decoy_present==F,apa_mean_conf(prop_choices), by = .(chosen_item)][,paste_and(sprintf('%ss in %s', chosen_item, V1))]`% of trials with response times of `r data_descr[decoy_present==F,apa_mean_conf(mean_RT), by = .(chosen_item)][,paste_and(V1)]`.
 
 ## Do decoys influence choices differently under different conditions?
 
@@ -222,14 +222,14 @@ ggplot(data_out, aes(x = chosen_item, fill = decoy_on))+geom_bar( position = 'do
 
 res <- ez::ezANOVA(data_out, dv = 'correct', within = c('condition','decoy_on'), wid = .(participant), type = 3)
 
-plot.pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w', within_subj =  T)+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
+plot_pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w', within_subj =  T)+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
 ```
 
 The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not; correct here means that a target is chosen) as a dependent variable (@fig-accuracy). The results are provided below:
 
-* the effect of condition `r describe.ezanova(res, 'condition')`
-* the effect of decoy type `r describe.ezanova(res, 'decoy_on')`
-* the effect of their interaction `r describe.ezanova(res, 'condition:decoy_on')`
+* the effect of condition `r apa(res, 'condition')`
+* the effect of decoy type `r apa(res, 'decoy_on')`
+* the effect of their interaction `r apa(res, 'condition:decoy_on')`
 
 
 ```{r}
@@ -238,11 +238,11 @@ The effects of decoy type and condition were then analyzed using a within-subjec
 
 res_rt <- ez::ezANOVA(data_out, dv = 'rt', within = c('condition','decoy_on'), wid = .(participant), type = 3)
 
-plot.pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'participant', design = 'w', within_subj = T)+labs(y = 'Response time, s', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
+plot_pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'participant', design = 'w', within_subj = T)+labs(y = 'Response time, s', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
 ```
 
 Lastly, we analyzed the response times again using a within-subject ANOVA (@fig-rt). The results are provided below:
 
-* the effect of condition `r describe.ezanova(res_rt, 'condition')`
-* the effect of decoy type `r describe.ezanova(res_rt, 'decoy_on')`
-* the effect of their interaction `r describe.ezanova(res_rt, 'condition:decoy_on')`
+* the effect of condition `r apa(res_rt, 'condition')`
+* the effect of decoy type `r apa(res_rt, 'decoy_on')`
+* the effect of their interaction `r apa(res_rt, 'condition:decoy_on')`

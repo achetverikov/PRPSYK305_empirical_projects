@@ -28,7 +28,7 @@ format:
 
 ```{r setup}
 library(httr)
-library(apastats)
+library(apastats2)
 library(data.table)
 library(jsonlite)
 library(stringr)
@@ -211,7 +211,7 @@ data_color[,participant:=paste0('S',as.numeric(factor(participant, levels = samp
 data_color[,c('startDate','endDate','result_id','avg_frame_time'):=NULL]
 
 setnafill(data_color, type = "locf", cols = c('window_height','window_width'))
-data_color <- drop.empty.cols(data_color)
+data_color <- drop_empty_cols(data_color)
 
 data_color <- data_color[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 
@@ -237,7 +237,7 @@ data_color[, abs_td_dist:=abs(td_dist)]
 data_color[,target_color:=angle_diff_360(target_color, 0)]
 data_color[,similarity_binf:=factor(similarity_bin)]
 data_color[,noise:=interaction(target_noise, distr_noise, sep = ' - ')]
-data_color[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),  mean_abs_err= mean.nn(abs_err), n_non_missing_by_subj = n_by_subj[!is.na(error)][1], missed_responses = sum(is.na(error))), keyby = .(participant)]
+data_color[,.(totalN = .N, circ_sd = circ_sd_360(error, na.rm = T),  mean_abs_err= mean_nn(abs_err), n_non_missing_by_subj = n_by_subj[!is.na(error)][1], missed_responses = sum(is.na(error))), keyby = .(participant)]
 
 ```
 
@@ -255,13 +255,13 @@ db_res <- lapply(split(data_color[!is.na(error),], by = c('participant', 'cue_n'
 
 data_color <- rbindlist(db_res)
 data_color[is_outlier==F&abs_err>90, is_outlier:=T]
-data_color[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(error, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean.nn(is_outlier), mean_abs_err= mean.nn(abs_err)), keyby = .(participant)]
+data_color[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(error, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean_nn(is_outlier), mean_abs_err= mean_nn(abs_err)), keyby = .(participant)]
 
 data_color[,bias_to_distr_corr:=sign(td_dist)*be_c]
 data_color[,bias_to_distr_raw:=sign(td_dist)*error]
 
 data_color[,abs_be_c:=abs(be_c)]
-data_color[,avg_abs_err:=mean.nn(abs(be_c)), by = participant]
+data_color[,avg_abs_err:=mean_nn(abs(be_c)), by = participant]
 data_color[,noise_equal:=factor(distr_noise==target_noise, levels = c(F, T), labels = c('Unequal noise', 'Equal noise'))]
 data_color[,bias_distr:=NULL]
 data_color[,similarity_binf:=factor(similarity_bin)]
@@ -307,7 +307,7 @@ Read the report and use it as a basis for your presentation. You can also downlo
 {{< include colors_and_imagery_methods.md >}}
 
 ## Participants
-`r str_to_sentence(apastats:::numbers2words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(finished_study[,.N]-data_color[,lengthu(participant)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
+`r str_to_sentence(xfun::numbers_to_words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(xfun::numbers_to_words(finished_study[,.N]-data_color[,lengthu(participant)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
 
 # Results
 
@@ -327,7 +327,7 @@ ggplot(data_vviq, aes(x = vviq)) +
         axis.ticks.y = element_blank())
 ```
 
-The VVIQ scores were between `r min(data_vviq$vviq)` and `r max(data_vviq$vviq)` (`r describe.mean.conf(data_vviq$vviq)`).
+The VVIQ scores were between `r min(data_vviq$vviq)` and `r max(data_vviq$vviq)` (`r apa_mean_conf(data_vviq$vviq)`).
 
 ## Color recall accuracy
 
@@ -336,7 +336,7 @@ The VVIQ scores were between `r min(data_vviq$vviq)` and `r max(data_vviq$vviq)`
 #| fig-cap: "Effect of target and distractor noise on color recall accuracy. Error bars represent 95% confidence intervals corrected for within-subject comparisons."
 #| fig-asp: 0.75
 
-plot.pointrange(data_color[is_outlier==F], aes(x = target_noise, 
+plot_pointrange(data_color[is_outlier==F], aes(x = target_noise, 
                                y = abs_be_c, 
                                color = distr_noise),
                within_subj = TRUE, 
@@ -358,7 +358,7 @@ ez_res_abs_err <- ezANOVA(
 )
 ```
 
-A repeated-measures ANOVA indicated a significant effect of target noise `r describe.ezanova(ez_res_abs_err, 'target_noise')` and a target × distractor noise interaction `r describe.ezanova(ez_res_abs_err, 'target_noise:distr_noise')`. Performance dropped significantly when the targets became more noisy: `r describe.ttest(dcast(data_color, participant~target_noise, value.var = 'abs_err', fun = mean)[,t.test(low, high, paired = T)])`. However, the effect of distractor noise was noticeable only when the target had a low noise level `r describe.ttest(dcast(data_color[target_noise=='low'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` but not when it had a high noise level `r describe.ttest(dcast(data_color[target_noise=='high'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])`.
+A repeated-measures ANOVA indicated a significant effect of target noise `r apa(ez_res_abs_err, 'target_noise')` and a target × distractor noise interaction `r apa(ez_res_abs_err, 'target_noise:distr_noise')`. Performance dropped significantly when the targets became more noisy: `r apa(dcast(data_color, participant~target_noise, value.var = 'abs_err', fun = mean)[,t.test(low, high, paired = T)])`. However, the effect of distractor noise was noticeable only when the target had a low noise level `r apa(dcast(data_color[target_noise=='low'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` but not when it had a high noise level `r apa(dcast(data_color[target_noise=='high'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])`.
 
 ## Does imagery score predict the recall accuracy?
 
@@ -383,7 +383,7 @@ perf_vviq_by_noise <- data_color[is_outlier==F,.(mem_perf_bc = circ_sd_360(be_c)
                                  by = .(participant, vviq, target_noise)]
 
 
-perf_vviq_out <- data_color[,.(mem_perf_n_out = mean.nn(is_outlier)),                                     
+perf_vviq_out <- data_color[,.(mem_perf_n_out = mean_nn(is_outlier)),                                     
                                  by = .(participant, vviq)]
 
 # Create derived measures
@@ -422,4 +422,4 @@ p3 <- ggplot(delta_cue_n_by_vviq, aes(x = vviq, y = delta)) +
   theme(plot.tag = element_text(face = "bold", size = 12))
 ```
 
-Overall, there was no correlation between recall accuracy and VVIQ score (`r perf_vviq[,describe.r(cor.test(mem_perf_bc, vviq))]`). Furthermore, the drop in performance in the high noise condition compared to the low noise condition also did not correlate with VVIQ scores (`r delta_by_vviq[,describe.r(cor.test(delta, vviq))]`). Finally, we analyzed the difference in performance between the second item and the first item (where positive values indicate worse performance for the second item), but also did not see any correlation with VVIQ score (`r delta_cue_n_by_vviq[,describe.r(cor.test(delta, vviq))]`).
+Overall, there was no correlation between recall accuracy and VVIQ score (`r perf_vviq[,apa(cor.test(mem_perf_bc, vviq))]`). Furthermore, the drop in performance in the high noise condition compared to the low noise condition also did not correlate with VVIQ scores (`r delta_by_vviq[,apa(cor.test(delta, vviq))]`). Finally, we analyzed the difference in performance between the second item and the first item (where positive values indicate worse performance for the second item), but also did not see any correlation with VVIQ score (`r delta_cue_n_by_vviq[,apa(cor.test(delta, vviq))]`).

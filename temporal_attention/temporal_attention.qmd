@@ -28,7 +28,7 @@ format:
 
 ```{r setup}
 library(httr)
-library(apastats)
+library(apastats2)
 library(data.table)
 library(jsonlite)
 library(stringr)
@@ -161,20 +161,24 @@ setnafill(data, type = "nocb", cols = c('start_ori','resp_ori','error','trial_nu
 data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
 data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
 data <- data[seq_type=='stimuli']
-
-
 data[,abs_err:=abs(error)]
+data <- drop_empty_cols(data)
+
 datam <- melt(data[,.(participant, block, trial_index, t1_ori, t2_ori, t3_ori, real_target_position)], measure.vars = patterns('_ori'))
 datam[,item_pos:=as.numeric(str_extract( variable,'\\d+'))]
 datam <- datam[order(participant, block, trial_index, item_pos)]
 datam[,c('diff_to_next','diff_to_prev'):=list(angle_diff_180(value,shift(value, -1)),angle_diff_180(value,shift(value, 1))), by = .(participant, block, trial_index)]
 data<-merge(data, datam[real_target_position==item_pos, .(participant, block, trial_index, target_ori = value, diff_to_next, diff_to_prev)], by = c('participant', 'block', 'trial_index'))
-data <- drop.empty.cols(data)
 data[,N_by_participant:=.N, by = participant]
 data <- data[N_by_participant>100]
 data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 
-fwrite(data[,.(participant, block, trial_number, t1_ori, t2_ori, t3_ori, target_position, cue_type, real_target_position, start_ori, resp_ori, error, abs_err, target_ori, diff_to_next, diff_to_prev)], file = 'temporal_attention.csv')
+export_cols <- c(
+    'participant', 'block', 'trial_number', 't1_ori', 't2_ori', 't3_ori',
+    'target_position', 'cue_type', 'real_target_position', 'start_ori',
+    'resp_ori', 'error', 'abs_err', 'target_ori', 'diff_to_next', 'diff_to_prev'
+  )
+fwrite(data[, ..export_cols], file = 'temporal_attention.csv')
 ```
 
 # Instructions
@@ -201,7 +205,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 
 {{< include temporal_attention_methods.md >}}
 ### Participants
-`r stringr::str_to_sentence(apastats:::numbers2words(data[,lengthu(participant)]))` participants took part in this study. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
+`r stringr::str_to_sentence(xfun::numbers_to_words(data[,lengthu(participant)]))` participants took part in this study. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
 
 ## Results
 
@@ -224,7 +228,7 @@ cue_type_anova <- ezANOVA(
 )
 
 # Plot cue type effect using plot.pointrange with direct parameters
-plot.pointrange(data, 
+plot_pointrange(data, 
                 aes(x = cue_type, y = abs_err), 
                 within_subj = TRUE,  
                 withinvars = "cue_type",
@@ -235,7 +239,7 @@ plot.pointrange(data,
                 y = "Absolute Error (degrees)")
 ```
 
-The effect of a pre-cue type on accuracy was analyzed using a within-subject ANOVA with absolute error in orientation judgment as the dependent variable (@fig-cue-type-effect). The results show a clear effect of cue type: `r describe.ezanova(cue_type_anova, 'cue_type')`. On average, participants average absolute error was `r data_descr[,describe.mean.conf(acc), by = .(cue_type)][,paste_and(sprintf('%s with %s cues', V1, cue_type))]` (here and later the confidence intervals are reported in square brackets after the means).
+The effect of a pre-cue type on accuracy was analyzed using a within-subject ANOVA with absolute error in orientation judgment as the dependent variable (@fig-cue-type-effect). The results show a clear effect of cue type: `r apa(cue_type_anova, 'cue_type')`. On average, participants average absolute error was `r data_descr[,apa_mean_conf(acc), by = .(cue_type)][,paste_and(sprintf('%s with %s cues', V1, cue_type))]` (here and later the confidence intervals are reported in square brackets after the means).
 
 
 ### Effect of Pre-Cue and Post-Cue on Accuracy
@@ -264,7 +268,7 @@ position_anova <- ezANOVA(
 
 
 # Plot the interaction using plot.pointrange
-plot.pointrange(data, 
+plot_pointrange(data, 
                 aes(color = initial_cue, y = abs_err, x = post_cue),
                 within_subj = TRUE,
                 withinvars = c("initial_cue", "post_cue"),
@@ -275,23 +279,23 @@ plot.pointrange(data,
                 y = "Absolute Error (degrees)") 
 
 pre_post <- data[post_cue=='2'&initial_cue!='2'&cue_type != "neutral"]
-pre_post_by_subj <- pre_post[,mean.nn(abs_err), by = .(participant, post_cue, initial_cue)]
-ttest_descr <- describe.ttest(dcast(pre_post_by_subj, participant~initial_cue, fun=mean)[,t.test(`1`,`3`, paired = T)])
+pre_post_by_subj <- pre_post[,mean_nn(abs_err), by = .(participant, post_cue, initial_cue)]
+ttest_descr <- apa(dcast(pre_post_by_subj, participant~initial_cue, fun=mean)[,t.test(`1`,`3`, paired = T)])
 
 ```
 
 The effects of initial cue position and post-cue position were analyzed using a within-subject ANOVA (@fig-cue-positions) after excluding the trials where the first cue was neutral. The results showed:
 
-* a significant main effect of initial cue position: `r describe.ezanova(position_anova, 'initial_cue')`
-* a significant main effect of post-cue position: `r describe.ezanova(position_anova, 'post_cue')`
-* a significant interaction effect: `r describe.ezanova(position_anova, 'initial_cue:post_cue')`
+* a significant main effect of initial cue position: `r apa(position_anova, 'initial_cue')`
+* a significant main effect of post-cue position: `r apa(position_anova, 'post_cue')`
+* a significant interaction effect: `r apa(position_anova, 'initial_cue:post_cue')`
 
 To examine whether performance drops more when people have to report the item at the position after the one that is cued (i.e., if there is a 'refractory' period for attention), we selected the trials where participants reported the target at position 2 and the pre-cue pointed to the 1st or the 3rd position. We found that after being cued to position 1, participants' reports for the second target suffered more, than when they were initially cued to position 3 (`r ttest_descr`). 
 
 ```{r}
 #| label: fig-benefit
 #| fig-cap: "Cost and Benefit Indices for Temporal Attention"
-costs_benefits <- dcast(data[,.(perf = mean.nn(abs_err)), by = .(participant, cue_type, post_cue)], participant+post_cue~cue_type)
+costs_benefits <- dcast(data[,.(perf = mean_nn(abs_err)), by = .(participant, cue_type, post_cue)], participant+post_cue~cue_type)
 costs_benefits[, cost_index := -(neutral-invalid)/(valid-invalid)]
 costs_benefits[, benefit_index := -(valid-neutral)/(valid-invalid)]
 costs_benefits[post_cue==2,t.test(neutral,invalid, paired  = T)]
@@ -299,8 +303,8 @@ costs_benefits[post_cue==2,t.test(neutral,invalid, paired  = T)]
 costs_benefits <- melt(costs_benefits, id.vars = c('participant', 'post_cue'), measure.vars = c('cost_index', 'benefit_index')) 
 costs_benefits[post_cue==1]
 costs_benefits[,index_type := ifelse(variable=='cost_index', 'cost', 'benefit')]
-cb_tt <- costs_benefits[,describe.ttest(t.test(value)), by = .(variable, post_cue)]
-plot.pointrange(costs_benefits, aes(x = post_cue, y = value, color = index_type), 
+cb_tt <- costs_benefits[,.(V1 = apa(t.test(value))), by = .(variable, post_cue)]
+plot_pointrange(costs_benefits, aes(x = post_cue, y = value, color = index_type), 
                   within_subj = TRUE,
                   design = 'w',
                   wid = "participant",

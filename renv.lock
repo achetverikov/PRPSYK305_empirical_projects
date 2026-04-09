@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.5.1",
+    "Version": "4.5.3",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -75,7 +75,7 @@
     },
     "Matrix": {
       "Package": "Matrix",
-      "Version": "1.7-3",
+      "Version": "1.7-4",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -88,7 +88,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "fb578c2b5d796882c60e9f770352f7c4"
+      "Hash": "7dbe8933065523bfc227027091bf2b1f"
     },
     "MatrixModels": {
       "Package": "MatrixModels",
@@ -198,16 +198,16 @@
       ],
       "Hash": "2288423bb0f20a457800d7fc47f6aa54"
     },
-    "apastats": {
-      "Package": "apastats",
-      "Version": "0.5",
+    "apastats2": {
+      "Package": "apastats2",
+      "Version": "1.0.2",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteUsername": "achetverikov",
-      "RemoteRepo": "apastats",
+      "RemoteRepo": "APAstats",
       "RemoteRef": "master",
-      "RemoteSha": "acbf761e3f66643c96e9b6ad65fdcd4af01382ed",
+      "RemoteSha": "cd3a7d4c4b6e804aa571968daa9b82bb39ff6976",
       "Requirements": [
         "R",
         "data.table",
@@ -216,7 +216,7 @@
         "stringr",
         "utils"
       ],
-      "Hash": "401570151eafbb2730126ec2259cb38b"
+      "Hash": "753669889da95252d49d755cb2709fd6"
     },
     "askpass": {
       "Package": "askpass",
@@ -250,7 +250,7 @@
     },
     "boot": {
       "Package": "boot",
-      "Version": "1.3-31",
+      "Version": "1.3-32",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -258,7 +258,7 @@
         "graphics",
         "stats"
       ],
-      "Hash": "de2a4646c18661d6a0a08ec67f40b7ed"
+      "Hash": "d39b147eb7fe9df64a1a55f72346360c"
     },
     "broom": {
       "Package": "broom",
@@ -391,7 +391,7 @@
     },
     "cluster": {
       "Package": "cluster",
-      "Version": "2.1.8.1",
+      "Version": "2.1.8.2",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -401,7 +401,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "e16d49a008e1a22ee863fb9a51de9bde"
+      "Hash": "1482831bf9efe2ae01b37d9145d708b8"
     },
     "colorspace": {
       "Package": "colorspace",
@@ -588,7 +588,7 @@
     },
     "foreign": {
       "Package": "foreign",
-      "Version": "0.8-90",
+      "Version": "0.8-91",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -597,7 +597,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "f8bb52cf63a7ba97c87e47ede10976ad"
+      "Hash": "562817f5340990d955a0ab0fc7a1389d"
     },
     "fs": {
       "Package": "fs",
@@ -892,7 +892,7 @@
     },
     "lattice": {
       "Package": "lattice",
-      "Version": "0.22-7",
+      "Version": "0.22-9",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -903,7 +903,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "934f30aea6442867f57a610034ab06d3"
+      "Hash": "91febc38a877968922d0d37d5db0f674"
     },
     "lifecycle": {
       "Package": "lifecycle",
@@ -988,7 +988,7 @@
     },
     "mgcv": {
       "Package": "mgcv",
-      "Version": "1.9-3",
+      "Version": "1.9-4",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1001,7 +1001,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "51fcbccd59569cdad6da6b8e49cdf4f2"
+      "Hash": "347e906be9f134c45ee8ed36430cad5a"
     },
     "microbenchmark": {
       "Package": "microbenchmark",
@@ -1477,9 +1477,14 @@
     },
     "superb": {
       "Package": "superb",
-      "Version": "1.0.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
+      "Version": "1.0.1",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "achetverikov",
+      "RemoteRepo": "superb",
+      "RemoteRef": "master",
+      "RemoteSha": "229267eb1868dc2d1e8067ae636696e333f417b8",
       "Requirements": [
         "MASS",
         "R",
@@ -1497,11 +1502,11 @@
         "stringr",
         "utils"
       ],
-      "Hash": "0b27ded56cb90b8367d69b5b9b82abfb"
+      "Hash": "6c7440bd654b874f0327edd9cea3c745"
     },
     "survival": {
       "Package": "survival",
-      "Version": "3.8-3",
+      "Version": "3.8-6",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
@@ -1513,7 +1518,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "fe42836742a4f065b3f3f5de81fccab9"
+      "Hash": "663dbb3b41554b751ae90fe58f72decf"
     },
     "sys": {
       "Package": "sys",

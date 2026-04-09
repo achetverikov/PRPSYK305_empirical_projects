@@ -28,7 +28,7 @@ format:
 
 ```{r setup}
 library(httr)
-library(apastats)
+library(apastats2)
 library(circhelp)
 library(data.table)
 library(jsonlite)
@@ -233,7 +233,7 @@ fwrite(tomatoes, file = "tomatoes_raw.csv")
 ```
 
 ```{r results='hide'}
-tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean.nn(abs_err)), keyby = .(startDate, endDate,  subject_id)]
+tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean_nn(abs_err)), keyby = .(startDate, endDate,  subject_id)]
 plot(density(tomatoes[!is.na(error), error]))
 ggplot(tomatoes[!is.na(error)], aes(x = error))+
   geom_density()+
@@ -266,10 +266,10 @@ tomatoes[is_outlier==F&abs_err>90, is_outlier:=T]
 tomatoes[!is.na(abs_err), 
          bias_rel_to_high_var := sign(angle_diff_360(item_high_var_color, base_color)) * be_c]
 
-aggr_stats <- tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean.nn(is_outlier), mean_abs_err= mean.nn(abs_err), bias_rel_to_high_var = circ_mean_360(bias_rel_to_high_var, na.rm = T)), keyby = .(subject)]#[,mean.nn(share_outliers)]
+aggr_stats <- tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean_nn(is_outlier), mean_abs_err= mean_nn(abs_err), bias_rel_to_high_var = circ_mean_360(bias_rel_to_high_var, na.rm = T)), keyby = .(subject)]#[,mean_nn(share_outliers)]
 
 tomatoes[,abs_be_c:=abs(be_c)]
-tomatoes[,avg_abs_err:=mean.nn(abs(be_c)), by = subject]
+tomatoes[,avg_abs_err:=mean_nn(abs(be_c)), by = subject]
 corr_midpoint <- mean(range(c(tomatoes$left_correlation, tomatoes$right_correlation), na.rm = TRUE))
 tomatoes[,left_variability := fifelse(left_correlation <= corr_midpoint, "high", "low")]
 tomatoes[,right_variability := fifelse(right_correlation <= corr_midpoint, "high", "low")]
@@ -278,7 +278,7 @@ tomatoes[,variability_condition:=factor(paste0(left_variability, " - ", right_va
                                         levels = c("low - low", "high - low", "low - high", "high - high"))]
 tomatoes[,similarity_binf:=factor(similarity_bin)]
 
-tomatoes <- drop.empty.cols(tomatoes)
+tomatoes <- drop_empty_cols(tomatoes)
 
 tomatoes[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
 
@@ -315,7 +315,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 # Methods
 
 ## Participants
-`r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]))` participants took part in the study. `r str_to_sentence(apastats:::numbers2words(aggr_stats[,.N]-tomatoes[,lengthu(subject)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
+`r str_to_sentence(xfun::numbers_to_words(aggr_stats[,.N]))` participants took part in the study. `r str_to_sentence(xfun::numbers_to_words(aggr_stats[,.N]-tomatoes[,lengthu(subject)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
 
 {{< include tomatoes_experience_methods.md >}}
 
@@ -326,7 +326,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 #| fig-cap: "Mean absolute error in color reporting as a function of similarity bin. Error bars represent within-subject 95% confidence intervals."
 #| label: fig-color-error
 # Create the plot with proper axis labels
-plot.pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
+plot_pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
                 aes(x = similarity_bin, y = abs_be_c, color = variability_condition), 
                 within_subj = TRUE, 
                 wid = 'subject', 
@@ -349,7 +349,7 @@ abs_error_anova <- ezANOVA(
 
 ```
 
-The repeated-measures ANOVA showed an effect of similarity bin, `r describe.ezanova(abs_error_anova, "similarity_binf")`, indicating that participants' performance was affected by the similarity between the two item colors.
+The repeated-measures ANOVA showed an effect of similarity bin, `r apa(abs_error_anova, "similarity_binf")`, indicating that participants' performance was affected by the similarity between the two item colors.
 
 ```{r}
 #| fig-cap: "Bias in reported color as a function of similarity bin and variability condition. Positive values indicate bias toward the high-variability item and negative values indicate bias toward the low-variability item. Error bars represent within-subject 95% confidence intervals."
@@ -361,7 +361,7 @@ tomatoes[!is.na(abs_err),
 
 tomatoes[,.(item_low_var_color, item_high_var_color, base_color,overall_sample_mean,resp_color,realErr, bias_rel_to_high_var_raw,  bias_rel_to_high_var )]
 # Create the plot
-p <- plot.pointrange(tomatoes[is_outlier==F & !is.na(abs_err)], 
+p <- plot_pointrange(tomatoes[is_outlier==F & !is.na(abs_err)], 
                 aes(x = similarity_bin, color = variability_condition, y = bias_rel_to_high_var), 
                 within_subj = TRUE, 
                 wid = 'subject', custom_geom_before = geom_hline(yintercept = 0, linetype = 2),
@@ -385,7 +385,7 @@ bias_anova <- ezANOVA(
 
 We calculated a bias measure to determine whether participants' color reports were systematically pulled toward one of the two items. This bias was computed so that positive values indicate responses shifted toward the high-variability item, while negative values indicate responses shifted toward the low-variability item.
 
-The analysis of bias revealed that the effect of similarity bin was not significant, `r describe.ezanova(bias_anova, "similarity_bin")`, indicating that similarity alone did not systematically affect the direction of participants' errors. However, the effect of variability condition was significant, `r describe.ezanova(bias_anova, "variability_condition")`, demonstrating that variability significantly influenced how participants weighted the two items when computing the average. Importantly, we found a significant interaction between similarity bin and variability condition, `r describe.ezanova(bias_anova, "similarity_bin:variability_condition")`, indicating that the effect of variability on bias was moderated by item similarity. 
+The analysis of bias revealed that the effect of similarity bin was not significant, `r apa(bias_anova, "similarity_bin")`, indicating that similarity alone did not systematically affect the direction of participants' errors. However, the effect of variability condition was significant, `r apa(bias_anova, "variability_condition")`, demonstrating that variability significantly influenced how participants weighted the two items when computing the average. Importantly, we found a significant interaction between similarity bin and variability condition, `r apa(bias_anova, "similarity_bin:variability_condition")`, indicating that the effect of variability on bias was moderated by item similarity. 
 
 ```{r}
 #| label: explore-interaction
@@ -418,5 +418,5 @@ split_results <- lapply(split(tomatoes[!is.na(abs_err) & is_outlier==F], by = 's
 names(split_results)<-paste0('c',names(split_results))
 ```
 
-Separate ANOVAs for each similarity bin showed that the effect of variability condition was significant only when items were relatively similar (`r describe.ezanova(split_results$c20)` for 20 deg. similarity and `r describe.ezanova(split_results$c45)` for 45 deg.) but not when they were very different (`r describe.ezanova(split_results$c135)`). With both 20 and 40 similarity, responses were closer to the more variable item, as @fig-bias-analysis shows.
+Separate ANOVAs for each similarity bin showed that the effect of variability condition was significant only when items were relatively similar (`r apa(split_results$c20, "variability_condition")` for 20 deg. similarity and `r apa(split_results$c45, "variability_condition")` for 45 deg.) but not when they were very different (`r apa(split_results$c135, "variability_condition")`). With both 20 and 40 similarity, responses were closer to the more variable item, as @fig-bias-analysis shows.
 

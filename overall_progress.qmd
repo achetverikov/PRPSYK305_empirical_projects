@@ -26,7 +26,7 @@ format:
 ---
 ```{r setup}
 library(httr)
-library(apastats)
+library(apastats2)
 library(data.table)
 library(jsonlite)
 library(stringr)
