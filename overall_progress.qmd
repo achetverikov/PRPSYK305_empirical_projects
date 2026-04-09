@@ -105,9 +105,36 @@ randstring <- function(n = 5000) {
   paste0(a, sprintf("%04d", sample(9999, n, TRUE)), sample(LETTERS, n, TRUE))
 }
 
+title_code_matching <- data.frame(
+  title = c(
+    "Visual Imagery: Imagery and biases in VWM",
+    "Attention: Temporal attention",
+    "High-level decision-making: Decoy effect with explicit bets vs their graphical representations",
+    "Summary statistics: subset averaging",
+    "Objects in long-term memory",
+    "Automaticity and expectations"
+  ),
+  study_name = c(
+    "JATOS_COLORS_AND_IMAGERY_STUDY_2026_UID",
+    "JATOS_TEMP_ATT_STUDY_UID",
+    "JATOS_DECOY_STUDY_2026_UID",
+    "JATOS_TOMATO_STUDY_2026_UID",
+    "JATOS_OBJ_STUDY_UID",
+    "JATOS_MONSTERS_STUDY_UID"
+  ),
+  short_title = c(
+    "Visual Imagery",
+    "Temporal Attention",
+    "Decoy Effect",
+    "Subset Averaging",
+    "Objects in LTM",
+    "Automaticity"
+  )
+)
+
 data_list <- list()
 study_uids <- Sys.getenv()
-study_uids <- study_uids[grepl('JATOS.*STUDY_UID',names(study_uids))]
+study_uids <- study_uids[names(study_uids)%in% title_code_matching$study_name]
 
 temp_dir <- tempdir(check = T)
 temp_dir <- gsub('\\\\', '/', temp_dir)
@@ -130,32 +157,7 @@ res <- lapply(study_uids, \(study_uid) {
 
 res <- rbindlist(res, idcol = 'study_name', fill = T)
 
-title_code_matching <- data.frame(
-  title = c(
-    "Visual Imagery: Imagery and biases in VWM",
-    "Attention: Temporal attention",
-    "High-level decision-making: Decoy effect with explicit bets vs their graphical representations",
-    "Summary statistics: subset averaging",
-    "Objects in long-term memory",
-    "Automaticity and expectations"
-  ),
-  study_name = c(
-    "JATOS_COLORS_AND_IMAGERY_STUDY_UID",
-    "JATOS_TEMP_ATT_STUDY_UID",
-    "JATOS_DECOY_STUDY_UID",
-    "JATOS_TOMATO_STUDY_UID",
-    "JATOS_OBJ_STUDY_UID",
-    "JATOS_MONSTERS_STUDY_UID"
-  ),
-  short_title = c(
-    "Visual Imagery",
-    "Temporal Attention",
-    "Decoy Effect",
-    "Subset Averaging",
-    "Objects in LTM",
-    "Automaticity"
-  )
-  )
+
 res[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
 res <- res[startDate>Sys.getenv("JATOS_START_DATE")]
 
@@ -166,7 +168,7 @@ title_code_matching <- merge(res[,.N, by = study_name], title_code_matching, by 
 
 ```{r}
 # Set total target participants
-total_participants <- 46+48
+total_participants <- 38
 
 # Calculate completion percentage for each study
 title_code_matching$completion_percentage <- round((title_code_matching$N / total_participants) * 100, 1)

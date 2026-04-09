@@ -115,7 +115,7 @@ randstring <- function(n = 5000) {
 ```{r}
 #| label: load_data
 data_list <- list()
-study_uid <- Sys.getenv('JATOS_COLORS_AND_IMAGERY_STUDY_UID')
+study_uid <- Sys.getenv('JATOS_COLORS_AND_IMAGERY_STUDY_2026_UID')
 
 temp_dir <- tempdir(check = T)
 temp_dir <- gsub('\\\\', '/', temp_dir)
