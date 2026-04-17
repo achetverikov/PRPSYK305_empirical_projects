@@ -211,7 +211,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 
 ### Effect of Cue Type on Accuracy
 
-```{r cue-type-effect}
+```{r}
 #| label: fig-cue-type-effect
 #| fig-cap: "Effect of cue type on orientation judgment accuracy"
 
@@ -244,7 +244,7 @@ The effect of a pre-cue type on accuracy was analyzed using a within-subject ANO
 
 ### Effect of Pre-Cue and Post-Cue on Accuracy
 
-```{r cue-positions}
+```{r}
 #| label: fig-cue-positions
 #| fig-cap: "Effect of initial cue position and post-cue position on accuracy"
 
