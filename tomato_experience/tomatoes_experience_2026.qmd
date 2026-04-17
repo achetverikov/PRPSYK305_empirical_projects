@@ -229,12 +229,11 @@ aggr_stats <- tomatoes[,.(totalN = .N, non_missing=n_by_subj[1],
                           circ_sd_err_to_uncorrelated = circ_sd_360(error_to_uncorrelated, na.rm = T),
                           circ_sd_err_to_correlated = circ_sd_360(error_to_correlated, na.rm = T),
                           n_by_subj[1], missed_responses = sum(is.na(error))), keyby = .(subject_id)]
-fwrite(tomatoes, file = "tomatoes_raw.csv")                
+fwrite(tomatoes, file = "tomatoes_raw_2026.csv")                
 ```
 
 ```{r results='hide'}
 tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean_nn(abs_err)), keyby = .(startDate, endDate,  subject_id)]
-plot(density(tomatoes[!is.na(error), error]))
 ggplot(tomatoes[!is.na(error)], aes(x = error))+
   geom_density()+
   geom_rug()
@@ -283,16 +282,15 @@ tomatoes <- drop_empty_cols(tomatoes)
 tomatoes[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
 
 if (lengthu(tomatoes$subject)>1){
-
-tomatoes <- tomatoes[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
+  tomatoes <- tomatoes[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 }
 tomatoes_out <- tomatoes[order(subject, trial_number),.(subject, trial_number, low_var_color = item_low_var_color, high_var_color = item_high_var_color, left_color = left_sample_mean, right_color = right_sample_mean, left_sd,  right_sd, variability_condition, similarity_bin, resp_color,  rawError = error, base_color , realErr, errorCorrected = be_c, bias_rel_to_high_var, is_outlier)]
-fwrite(tomatoes_out, file = 'tomatoes.csv')
+fwrite(tomatoes_out, file = 'tomatoes_2026.csv')
 ```
 
 # Instructions
 
-Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `tomatoes.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `tomatoes_2026.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
 
 * `subject` - participant identifier (ordinal factor with 34 levels)
 * `trial_number` - trial number within the experiment
@@ -317,7 +315,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 ## Participants
 `r str_to_sentence(xfun::numbers_to_words(aggr_stats[,.N]))` participants took part in the study. `r str_to_sentence(xfun::numbers_to_words(aggr_stats[,.N]-tomatoes[,lengthu(subject)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
 
-{{< include tomatoes_experience_methods.md >}}
+{{< include tomatoes_experience_methods_V26.md >}}
 
 # Results
 
