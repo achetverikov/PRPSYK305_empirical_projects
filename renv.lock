@@ -198,16 +198,36 @@
       ],
       "Hash": "2288423bb0f20a457800d7fc47f6aa54"
     },
+    "afex": {
+      "Package": "afex",
+      "Version": "1.5-1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "car",
+        "lme4",
+        "lmerTest",
+        "methods",
+        "pbkrtest",
+        "reformulas",
+        "reshape2",
+        "rlang",
+        "stats",
+        "utils"
+      ],
+      "Hash": "6c39f50fabf90cf4e0ba5f2f69de1ee6"
+    },
     "apastats2": {
       "Package": "apastats2",
-      "Version": "1.0.2",
+      "Version": "1.0.4",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteHost": "api.github.com",
       "RemoteUsername": "achetverikov",
       "RemoteRepo": "APAstats",
       "RemoteRef": "master",
-      "RemoteSha": "cd3a7d4c4b6e804aa571968daa9b82bb39ff6976",
+      "RemoteSha": "72781a081279bd16511f4c5228ef7a93b7b0b1ee",
+      "RemoteHost": "api.github.com",
       "Requirements": [
         "R",
         "data.table",
@@ -216,7 +236,7 @@
         "stringr",
         "utils"
       ],
-      "Hash": "753669889da95252d49d755cb2709fd6"
+      "Hash": "9cc6cd61edc6eacca1502b6f117c06d0"
     },
     "askpass": {
       "Package": "askpass",
@@ -529,6 +549,35 @@
         "vctrs"
       ],
       "Hash": "fedd9d00c2944ff00a0e2696ccf048ec"
+    },
+    "emmeans": {
+      "Package": "emmeans",
+      "Version": "2.0.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "estimability",
+        "graphics",
+        "methods",
+        "mvtnorm",
+        "numDeriv",
+        "rlang",
+        "stats",
+        "utils"
+      ],
+      "Hash": "241a5dd2630757e9aefa1cd75a4d74a6"
+    },
+    "estimability": {
+      "Package": "estimability",
+      "Version": "1.5.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "stats"
+      ],
+      "Hash": "21ec52af13afbcab1cb317567b639b0a"
     },
     "evaluate": {
       "Package": "evaluate",
@@ -945,6 +994,23 @@
       ],
       "Hash": "637ceb7665637edce9289dd763972704"
     },
+    "lmerTest": {
+      "Package": "lmerTest",
+      "Version": "3.2-1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "MASS",
+        "R",
+        "ggplot2",
+        "lme4",
+        "methods",
+        "numDeriv",
+        "reformulas",
+        "stats"
+      ],
+      "Hash": "726e3d0b974acb66f3aab203051f1b45"
+    },
     "lsr": {
       "Package": "lsr",
       "Version": "0.5.2",
@@ -1052,6 +1118,17 @@
         "vctrs"
       ],
       "Hash": "4f50122dc256b1b6996a4703fecea821"
+    },
+    "mvtnorm": {
+      "Package": "mvtnorm",
+      "Version": "1.3-7",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Requirements": [
+        "R",
+        "stats"
+      ],
+      "Hash": "7bdf251710837e13ab4ccd51dbc7c57d"
     },
     "naturalsort": {
       "Package": "naturalsort",
