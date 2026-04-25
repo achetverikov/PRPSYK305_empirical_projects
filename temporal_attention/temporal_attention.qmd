@@ -286,11 +286,11 @@ ttest_descr <- apa(dcast(pre_post_by_subj, participant~initial_cue, fun=mean)[,t
 
 The effects of initial cue position and post-cue position were analyzed using a within-subject ANOVA (@fig-cue-positions) after excluding the trials where the first cue was neutral. The results showed:
 
-* a significant main effect of initial cue position: `r apa(position_anova, 'initial_cue')`
+* no main effect of initial cue position: `r apa(position_anova, 'initial_cue')`
 * a significant main effect of post-cue position: `r apa(position_anova, 'post_cue')`
 * a significant interaction effect: `r apa(position_anova, 'initial_cue:post_cue')`
 
-To examine whether performance drops more when people have to report the item at the position after the one that is cued (i.e., if there is a 'refractory' period for attention), we selected the trials where participants reported the target at position 2 and the pre-cue pointed to the 1st or the 3rd position. We found that after being cued to position 1, participants' reports for the second target suffered more, than when they were initially cued to position 3 (`r ttest_descr`). 
+To examine whether performance drops more when people have to report the item at the position after the one that is cued (i.e., if there is a 'refractory' period for attention), we selected the trials where participants reported the target at position 2 and the pre-cue pointed to the 1st or the 3rd position. No difference was found for reports at the 2nd position between the two conditions (`r ttest_descr`). 
 
 ```{r}
 #| label: fig-benefit
@@ -318,5 +318,5 @@ plot_pointrange(costs_benefits, aes(x = post_cue, y = value, color = index_type)
 
 ```
 
-Finally, we repeated the cost-benefit analysis introduced by Denison et al. (2017). As @fig-benefit shows, for target 1 and 3, there were reliable costs (`r cb_tt[variable=='cost_index'&post_cue%in%c(1,3), paste_and(V1)]`) along with some benefits that did not reach significance (`r cb_tt[variable=='benefit_index'&post_cue%in%c(1,3), paste_and(V1)]`). No signficant effects were found for target 2 in this type of analysis.
+Finally, we repeated the cost-benefit analysis introduced by Denison et al. (2017). As @fig-benefit shows, for target 1 and 3, there were some costs (`r cb_tt[variable=='cost_index'&post_cue%in%c(1,3), paste_and(V1)]`) along with some benefits that did not reach significance (`r cb_tt[variable=='benefit_index'&post_cue%in%c(1,3), paste_and(V1)]`). No signficant effects were found for target 2 in this type of analysis.
 

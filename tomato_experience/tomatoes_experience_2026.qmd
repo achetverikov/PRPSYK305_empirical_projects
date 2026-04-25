@@ -23,6 +23,8 @@ editor_options:
 format: 
   html: 
     embed-resources: true
+params:
+  rebuild_data: false
 ---
 
 
@@ -36,7 +38,12 @@ library(stringr)
 library(knitr)
 library(Hmisc)
 library(ez)
+library(emmeans)
 library(superb)
+
+rebuild_data <- exists("params", inherits = FALSE) &&
+  is.list(params) &&
+  isTRUE(params$rebuild_data)
 
 default_font = 'Gill Sans Nova Light'
 
@@ -88,7 +95,8 @@ scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22
 ```
 
 ```{r}
-
+#| label: data-download
+#| eval: !expr rebuild_data
 headers = c(
   `Authorization` = sprintf("Bearer %s",Sys.getenv('JATOS_TOKEN')),
   `Content-Type` = 'text/plain'
@@ -154,24 +162,33 @@ cur_data <- rbindlist(lapply(c(flist), \(x){
     return(data.frame())
   }
 
-    km <- kmeans(as.matrix(data[!is.na(click_x),.(click_x,click_y)]), 3, nstart = 50)
-    sorted_indices <- order(km$centers[, 1])  # Assuming x-coordinate is in the first column
-    sorted_indices[2:3] <- rev(sorted_indices[2:3])
-        
-    # Reassign cluster labels based on sorted order
-    new_clusters <- match(km$cluster, sorted_indices)
-    data[!is.na(click_x), cue_n_alt:=new_clusters]
-    # data[, cue_pos:=ifelse(cue_n==1, 'left', ifelse(cue_n==2, 'right', 'avg'))]
+  km <- kmeans(as.matrix(data[!is.na(click_x),.(click_x,click_y)]), 3, nstart = 50)
+  sorted_indices <- order(km$centers[, 1])  # Assuming x-coordinate is in the first column
+  sorted_indices[2:3] <- rev(sorted_indices[2:3])
+      
+  # Reassign cluster labels based on sorted order
+  new_clusters <- match(km$cluster, sorted_indices)
+  data[!is.na(click_x), cue_n_alt:=new_clusters]
+  # data[, cue_pos:=ifelse(cue_n==1, 'left', ifelse(cue_n==2, 'right', 'avg'))]
     
   if ('cue_n' %nin% names(data)){
     data[,cue_n:=cue_n_alt]
   } 
   data[,score:=as.numeric(score)]
-  data[!is.na(left_colors), left_sd:=circ_sd_360(as.numeric(str_split(left_colors,',', simplify = T))), by = left_colors]
-  data[!is.na(right_colors), right_sd:=circ_sd_360(as.numeric(str_split(right_colors,',', simplify = T))), by = right_colors]
-  data[,left_colors:=NULL]
-  data[,right_colors:=NULL]
-  setnafill(data, type = "locf",cols = c('target_color','distractor_color','left_color','right_color','left_population_mean','right_population_mean', 'left_correlation', 'right_correlation','base_ori','overall_sample_mean','similarity', 'similarity_bin', 'color_bin','left_sd','right_sd','cue_n'))
+  data[, c('left_sd', 'right_sd', 'left_sample_mean_check', 'right_sample_mean_check', 'overall_sample_mean_check') := {
+    left_vals <- as.numeric(str_split(left_colors, ',', simplify = TRUE))
+    right_vals <- as.numeric(str_split(right_colors, ',', simplify = TRUE))
+    .(
+      circ_sd_360(left_vals),
+      circ_sd_360(right_vals),
+      circ_mean_360(left_vals),
+      circ_mean_360(right_vals),
+      circ_mean_360(c(left_vals, right_vals))
+    )
+  }, by = .(left_colors, right_colors)]
+  data[,left_colors:=fifelse(is.na(left_colors), shift(left_colors), left_colors)]
+  data[,right_colors:=fifelse(is.na(right_colors), shift(right_colors), right_colors)]
+  setnafill(data, type = "locf",cols = c('target_color','distractor_color','left_color','right_color','left_population_mean','right_population_mean', 'left_correlation', 'right_correlation','base_ori','overall_sample_mean','similarity', 'similarity_bin', 'color_bin','left_sd','right_sd', 'left_sample_mean_check', 'right_sample_mean_check', 'overall_sample_mean_check','cue_n'))
   setnafill(data, type = "nocb",cols = c('score'))
   setnames(data,c('base_ori','left_color','right_color'),c('base_color','left_sample_mean','right_sample_mean'))
   #
@@ -189,27 +206,68 @@ cur_data <- rbindlist(lapply(c(flist), \(x){
 }), fill = T)
 ```
 
+
+```{r}
+#| label: corr_matrices_plots
+#| eval: false
+cur_data[,cor_side:=fifelse(left_correlation>right_correlation, 'left', 'right')]
+cur_data[, base_color := atan2(
+  sin(target_color / 180 * pi) + sin(distractor_color / 180 * pi),
+  cos(target_color / 180 * pi) + cos(distractor_color / 180 * pi)
+) / pi * 180]
+
+cur_data[, base_color := angle_diff_360(base_color,0)]
+# dt <- cur_data[left_correlation==0.8&right_correlation==0]
+lapply(split(cur_data, by = c('left_correlation', 'right_correlation'), drop = T), \(dt){
+  trial_colors <- as.matrix(dt[,tstrsplit(paste(left_colors, right_colors, sep = ','), ',', type.convert = as.numeric)])
+
+  trial_colors[, 1:64] <- sweep(
+    trial_colors[, 1:64, drop = FALSE],
+    1,
+    dt$left_population_mean,
+    FUN = angle_diff_360
+  )
+
+  trial_colors[, 65:128] <- sweep(
+    trial_colors[, 65:128, drop = FALSE],
+    1,
+    dt$right_population_mean,
+    FUN = angle_diff_360
+  )
+
+  means_left <- rowMeans(trial_colors[,1:64])
+  means_right <- rowMeans(trial_colors[,65:128])
+  cor_mat <- cor(trial_colors)
+  print(sprintf('Left correlation: %.2f, Right correlation: %.2f', dt$left_correlation[1], dt$right_correlation[1]))
+  print(sprintf('Mean correlation of left item colors: %.2f', mean(cor_mat[1:64,1:64][lower.tri(cor_mat[1:64,1:64])])))
+  print(sprintf('Mean correlation of right item colors: %.2f', mean(cor_mat[65:128,65:128][lower.tri(cor_mat[65:128,65:128])])))
+  print(sprintf('Correlation between left and right item colors: %.2f', mean(cor_mat[1:64,65:128][lower.tri(cor_mat[1:64,65:128])])))
+  
+  GGally::ggcorr(data  = NULL, cor_matrix = cor_mat)+labs(title= sprintf('Left correlation: %.2f, Right correlation: %.2f', dt$left_correlation[1], dt$right_correlation[1]))
+})
+```
 ```{r}
 #| label: data-preprocessing
-
+#| eval: !expr rebuild_data
 tomatoes <- cur_data
 tomatoes[,expName:='tomato_experience_2026']
 tomatoes[,.(left_population_mean, right_population_mean, base_color,
             target_color, distractor_color, left_sample_mean, right_sample_mean)]
-tomatoes[,realErr:=angle_diff_360(resp_color, base_color )]
+tomatoes[,error_to_pop_mean:=angle_diff_360(resp_color, base_color )]
 tomatoes[left_correlation!=right_correlation, c('error_to_uncorrelated','error_to_correlated') := .(
   angle_diff_360(resp_color, fifelse(left_correlation<right_correlation,  left_sample_mean, right_sample_mean)), 
-  angle_diff_360(resp_color, fifelse(left_correlation>right_correlation,  left_sample_mean, right_sample_mean)))]
+  angle_diff_360(resp_color, fifelse(left_correlation>right_correlation,  left_sample_mean, right_sample_mean))
+  )]
 
 # correlation level defines variability level
 # (correlated = low variability, uncorrelated = high variability).
-tomatoes[,item_low_var_color:=fifelse(
+tomatoes[,item_low_var_color:=ifelse(
   left_correlation>right_correlation, left_sample_mean,
   right_sample_mean
 )]
-tomatoes[,item_high_var_color:=fifelse(
-  left_correlation<right_correlation, left_sample_mean,
-  right_sample_mean
+tomatoes[,item_high_var_color:=ifelse(
+  left_correlation>right_correlation, right_sample_mean,
+  left_sample_mean
 )]
 
 tomatoes[,abs_err:=abs(error)]
@@ -224,7 +282,7 @@ tomatoes[,similarity_binf:=factor(similarity_bin)]
 tomatoes<-tomatoes[n_by_subj>250&block>0]
 
 aggr_stats <- tomatoes[,.(totalN = .N, non_missing=n_by_subj[1], 
-                          circ_sd_err_to_pop_mean = circ_sd_360(realErr, na.rm = T), 
+                          circ_sd_err_to_pop_mean = circ_sd_360(error_to_pop_mean, na.rm = T), 
                           circ_sd_err_to_sample_mean = circ_sd_360(error, na.rm = T),
                           circ_sd_err_to_uncorrelated = circ_sd_360(error_to_uncorrelated, na.rm = T),
                           circ_sd_err_to_correlated = circ_sd_360(error_to_correlated, na.rm = T),
@@ -232,7 +290,11 @@ aggr_stats <- tomatoes[,.(totalN = .N, non_missing=n_by_subj[1],
 fwrite(tomatoes, file = "tomatoes_raw_2026.csv")                
 ```
 
-```{r results='hide'}
+```{r}
+#| label: data-quality-checks
+#| results: hide
+#| eval: false
+tomatoes <- fread('tomatoes_raw_2026.csv')
 tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T), mean_abs_err= mean_nn(abs_err)), keyby = .(startDate, endDate,  subject_id)]
 ggplot(tomatoes[!is.na(error)], aes(x = error))+
   geom_density()+
@@ -241,11 +303,11 @@ ggplot(tomatoes[!is.na(error)], aes(x = error))+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 ```
 
-```{r eval = T}
-
+```{r}
+#| label: bias-correction-outlier-removal
+#| eval: !expr rebuild_data
 #outliers 
 tomatoes <- tomatoes[subject_id%nin%tomatoes[,.(.N, circ_sd_360(error, na.rm = T)), by = subject_id][V2>60|N<200, subject_id]]
-tomatoes <- tomatoes[cue_n == 3]
 tomatoes[,subject:=paste0('S',as.numeric(as.factor(subject_id)))]
 tomatoes[,subject:=naturalsort::naturalfactor(subject)]
 
@@ -256,19 +318,13 @@ db_res <- lapply(split(tomatoes[!is.na(error),], by = c('subject_id')), \(dt){
 })
 
 tomatoes <-rbindlist(db_res)
-tomatoes <- tomatoes[!is.na(abs_err)&is_outlier==F]
+# tomatoes <- tomatoes[!is.na(abs_err)&is_outlier==F]
 ```
 
 ```{r}
+#| label: creating-output-dataset
+#| eval: !expr rebuild_data
 tomatoes[is_outlier==F&abs_err>90, is_outlier:=T]
-
-tomatoes[!is.na(abs_err), 
-         bias_rel_to_high_var := sign(angle_diff_360(item_high_var_color, base_color)) * be_c]
-
-aggr_stats <- tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean_nn(is_outlier), mean_abs_err= mean_nn(abs_err), bias_rel_to_high_var = circ_mean_360(bias_rel_to_high_var, na.rm = T)), keyby = .(subject)]#[,mean_nn(share_outliers)]
-
-tomatoes[,abs_be_c:=abs(be_c)]
-tomatoes[,avg_abs_err:=mean_nn(abs(be_c)), by = subject]
 corr_midpoint <- mean(range(c(tomatoes$left_correlation, tomatoes$right_correlation), na.rm = TRUE))
 tomatoes[,left_variability := fifelse(left_correlation <= corr_midpoint, "high", "low")]
 tomatoes[,right_variability := fifelse(right_correlation <= corr_midpoint, "high", "low")]
@@ -277,6 +333,24 @@ tomatoes[,variability_condition:=factor(paste0(left_variability, " - ", right_va
                                         levels = c("low - low", "high - low", "low - high", "high - high"))]
 tomatoes[,similarity_binf:=factor(similarity_bin)]
 
+set.seed(20260425)
+tomatoes[, item_a_is_left := sample(c(TRUE, FALSE), .N, replace = TRUE)]
+tomatoes[, item_a_color := fifelse(item_a_is_left, left_sample_mean, right_sample_mean)]
+tomatoes[, item_b_color := fifelse(item_a_is_left, right_sample_mean, left_sample_mean)]
+tomatoes[, item_a_variability := fifelse(item_a_is_left, left_variability, right_variability)]
+tomatoes[, item_b_variability := fifelse(item_a_is_left, right_variability, left_variability)]
+tomatoes[, variability_condition_ab := factor(
+  paste0(item_a_variability, " - ", item_b_variability),
+  levels = c("low - low", "high - low", "low - high", "high - high")
+)]
+tomatoes[!is.na(abs_err),
+         bias_rel_to_item_a := sign(angle_diff_360(item_a_color, base_color)) * angle_diff_360(resp_color, base_color )]
+
+aggr_stats <- tomatoes[,.(.N, circ_sd = circ_sd_360(error, na.rm = T),circ_sd_correct = circ_sd_360(be_c, na.rm = T), n_by_subj=n_by_subj[1], n_nonmissing=sum(!is.na(error)), share_outliers= mean_nn(is_outlier), mean_abs_err= mean_nn(abs_err), bias_rel_to_item_a = circ_mean_360(bias_rel_to_item_a, na.rm = T)), keyby = .(subject)]#[,mean_nn(share_outliers)]
+
+tomatoes[,abs_be_c:=abs(be_c)]
+tomatoes[,avg_abs_err:=mean_nn(abs(be_c)), by = subject]
+
 tomatoes <- drop_empty_cols(tomatoes)
 
 tomatoes[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
@@ -284,8 +358,10 @@ tomatoes[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NU
 if (lengthu(tomatoes$subject)>1){
   tomatoes <- tomatoes[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 }
-tomatoes_out <- tomatoes[order(subject, trial_number),.(subject, trial_number, low_var_color = item_low_var_color, high_var_color = item_high_var_color, left_color = left_sample_mean, right_color = right_sample_mean, left_sd,  right_sd, variability_condition, similarity_bin, resp_color,  rawError = error, base_color , realErr, errorCorrected = be_c, bias_rel_to_high_var, is_outlier)]
+tomatoes_out <- tomatoes[order(subject, trial_number),.(subject, trial_number, low_var_color = item_low_var_color, high_var_color = item_high_var_color, left_color = left_sample_mean, right_color = right_sample_mean, left_sd,  right_sd, variability_condition, variability_condition_ab, item_a_is_left, item_a_color, item_b_color, similarity_bin, resp_color,  error_to_sample_mean = error, base_color , error_to_pop_mean, errorCorrected = be_c, bias_rel_to_item_a, is_outlier)]
+saveRDS(tomatoes, file = 'tomatoes_preprocessed_2026.rds')
 fwrite(tomatoes_out, file = 'tomatoes_2026.csv')
+fwrite(aggr_stats, file = 'tomatoes_aggr_stats.csv')
 ```
 
 # Instructions
@@ -301,14 +377,24 @@ Read the report below and use it as a basis for your presentation. You can also 
 * `left_sd` - standard deviation of the color distribution for the left stimulus
 * `right_sd` - standard deviation of the color distribution for the right stimulus
 * `variability_condition` - combined variability condition across the two items
+* `variability_condition_ab` - combined variability condition after randomly assigning the two items to A and B on each trial
+* `item_a_is_left` - logical indicator of whether item A is the left item on that trial
+* `item_a_color` - the color value of item A in degrees
+* `item_b_color` - the color value of item B in degrees
 * `similarity_bin` - angular distance between the two item colors in degrees (20°, 45°, or 135°)
 * `resp_color` - the color value reported by the participant in degrees
-* `rawError` - raw error in the participant's response
+* `error_to_sample_mean` - raw error in the participant's response
 * `base_color ` - the actual average color value to be reported
-* `realErr` - the actual error in the participant's response
+* `error_to_pop_mean` - the actual error in the participant's response
 * `errorCorrected` - the error after correction for individual biases (better to use this one for analyses than the raw error)
-* `bias_rel_to_high_var` - signed bias, where positive values indicate responses shifted toward the high-variability item
+* `bias_rel_to_item_a` - signed bias, where positive values indicate responses shifted toward item A and negative values indicate responses shifted toward item B
 * `is_outlier` - binary indicator of whether the trial was identified as an outlier based on the error magnitude (0 = not an outlier, 1 = outlier)
+
+```{r}
+#| label: read-preprocessed-data
+aggr_stats <- fread('tomatoes_aggr_stats.csv')
+tomatoes <- readRDS('tomatoes_preprocessed_2026.rds')
+```
 
 # Methods
 
@@ -325,96 +411,106 @@ Read the report below and use it as a basis for your presentation. You can also 
 #| label: fig-color-error
 # Create the plot with proper axis labels
 plot_pointrange(tomatoes[!is.na(abs_err)&is_outlier==F],
-                aes(x = similarity_bin, y = abs_be_c, color = variability_condition), 
+                aes(x = similarity_bin, y = abs_err, color = variability_condition), 
                 within_subj = TRUE, 
                 wid = 'subject', 
                 withinvars = c('similarity_bin')
                 ) +
   labs(x = "Similarity Bin (degrees)", 
-       y = "Absolute Error (degrees)") 
+       y = "Absolute Error (degrees)",
+       color = "Variability Condition") 
 
 # Run ANOVA
-abs_error_anova <- ezANOVA(
+abs_error_anova <- afex::aov_ez(
   data = tomatoes[!is.na(abs_err)&is_outlier==F],
-  dv = .(abs_be_c),
-  wid = .(subject),
-  within = .(similarity_binf),
-  detailed = TRUE,
-  type = 3
+  dv = 'abs_be_c',
+  id = 'subject',
+  within = c('similarity_bin', 'variability_condition'),
+  type = 3, fun_aggregate = mean
 )
 
-
-
+means_by_var <- get_superb_ci(
+  tomatoes[!is.na(abs_err) & is_outlier==F],   
+  wid = c('subject'),  
+  within = c('variability_condition'), 
+  value_var = 'abs_be_c'
+)
+setDT(means_by_var)
+```
+```{r}
+#| label: posthoc-tests-absolute-error
+posthoc_tests <- summary(contrast(emmeans(abs_error_anova,  ~  variability_condition), 'pairwise'))
+kable(posthoc_tests)
 ```
 
-The repeated-measures ANOVA showed an effect of similarity bin, `r apa(abs_error_anova, "similarity_binf")`, indicating that participants' performance was affected by the similarity between the two item colors.
+The repeated-measures ANOVA showed an effect of similarity bin, `r apa(abs_error_anova, "similarity_bin")`, indicating that participants' performance was affected by the similarity between the two item colors. Variability condition also had a significant effect on absolute error, `r apa(abs_error_anova, "variability_condition")`, as expected, with low-low condition (`r means_by_var[variability_condition=='low - low', descr]`; here and later 95% confidence intervals are reported in brackets after the means) being below the other three (`r paste_and(means_by_var[variability_condition!='low - low', descr])` for `r paste_and(means_by_var[variability_condition!='low - low', variability_condition])`, respectively). 
 
 ```{r}
-#| fig-cap: "Bias in reported color as a function of similarity bin and variability condition. Positive values indicate bias toward the high-variability item and negative values indicate bias toward the low-variability item. Error bars represent within-subject 95% confidence intervals."
+#| fig-cap: "Bias toward the higher-variability item as a function of similarity bin, computed on unequal-variance trials only. Positive values indicate responses shifted toward the higher-variability item. Error bars represent within-subject 95% confidence intervals."
 #| label: fig-bias-analysis
 
-# Calculate bias relative to the high-variability item
-tomatoes[!is.na(abs_err), 
-         bias_rel_to_high_var_raw := sign(angle_diff_360(item_high_var_color, base_color )) * realErr]
+# Collapse across high-low and low-high trials by coding bias toward the higher-variability item.
+cols <- c('overall_sample_mean', 'resp_color', 'item_high_var_color')
+tomatoes[, (cols) := lapply(.SD, angle_diff_360, 0), .SDcols = cols]
+tomatoes[!is.na(abs_err) & left_variability != right_variability,
+         bias_rel_to_high_var_raw := sign(angle_diff_360(item_high_var_color, overall_sample_mean)) * be_c]
 
-tomatoes[,.(item_low_var_color, item_high_var_color, base_color,overall_sample_mean,resp_color,realErr, bias_rel_to_high_var_raw,  bias_rel_to_high_var )]
-# Create the plot
-p <- plot_pointrange(tomatoes[is_outlier==F & !is.na(abs_err)], 
-                aes(x = similarity_bin, color = variability_condition, y = bias_rel_to_high_var), 
+uneq_bias <- tomatoes[!is.na(abs_err) & is_outlier==F & left_variability != right_variability]
+
+p <- plot_pointrange(uneq_bias,
+                aes(x = similarity_bin, y = bias_rel_to_high_var_raw), 
                 within_subj = TRUE, 
                 wid = 'subject', custom_geom_before = geom_hline(yintercept = 0, linetype = 2),
-                design = 'b') +
+                design = 'w') +
   labs(x = "Similarity Bin (degrees)", 
-       y = "Bias Toward High-Variability Item (degrees)",
-       color = "Variability Condition")
+       y = "Bias Toward Higher-Variability Item (degrees)")
 
 p
 
-# save_as_pptx(p, fname = 'fig-tomato-bias.pptx', plot_width = 10, plot_height = 5)
-# Run ANOVA on bias
-bias_anova <- ezANOVA(
-  data = tomatoes[is_outlier==F & !is.na(abs_err),],
-  dv = .(bias_rel_to_high_var),
-  wid = .(subject),
-  within = .(similarity_bin, variability_condition),
-  type = 3
+bias_anova <- afex::aov_ez(
+  data = uneq_bias,
+  dv = 'bias_rel_to_high_var_raw',
+  id = 'subject',
+  within = c('similarity_bin'),
+  type = 3,
+  fun_aggregate = mean
 )
-```
 
-We calculated a bias measure to determine whether participants' color reports were systematically pulled toward one of the two items. This bias was computed so that positive values indicate responses shifted toward the high-variability item, while negative values indicate responses shifted toward the low-variability item.
-
-The analysis of bias revealed that the effect of similarity bin was not significant, `r apa(bias_anova, "similarity_bin")`, indicating that similarity alone did not systematically affect the direction of participants' errors. However, the effect of variability condition was significant, `r apa(bias_anova, "variability_condition")`, demonstrating that variability significantly influenced how participants weighted the two items when computing the average. Importantly, we found a significant interaction between similarity bin and variability condition, `r apa(bias_anova, "similarity_bin:variability_condition")`, indicating that the effect of variability on bias was moderated by item similarity. 
-
-```{r}
-#| label: explore-interaction
-# Compute mean and CI for each group
+subject_bias <- uneq_bias[, .(bias_rel_to_high_var_raw = mean(bias_rel_to_high_var_raw, na.rm = TRUE)), by = .(subject, similarity_bin)]
 mean_bias <- get_superb_ci(
-  tomatoes[!is.na(abs_err) & is_outlier==F],   
-  wid = c('subject'),  
-  within = c('variability_condition', 'similarity_binf'), 
-  value_var = 'bias_rel_to_high_var'
+  subject_bias,
+  wid = c('subject'),
+  within = c('similarity_bin'),
+  value_var = 'bias_rel_to_high_var_raw'
 )
 setDT(mean_bias)
 
-# Add formatted string representation for mean and CI to each row
-mean_bias[, mean_ci_str := sprintf("_M_ = %.2f [%.2f, %.2f]", 
-                                  center, 
-                                  center + lowerwidth, 
-                                  center + upperwidth)]
+bias_ttests <- subject_bias[, .(apa = apa(t.test(bias_rel_to_high_var_raw, mu = 0))), by = similarity_bin]
 
-# Split by similarity bin and perform separate ANOVAs
-similarity_bins <- unique(tomatoes$similarity_binf)
-split_results <- lapply(split(tomatoes[!is.na(abs_err) & is_outlier==F], by = 'similarity_bin'), function(dt) {
-  ezANOVA(
-    data = dt,
-    dv = .(bias_rel_to_high_var),
-    wid = .(subject),
-    within = .(variability_condition),
-    type = 3
-  )
-})
-names(split_results)<-paste0('c',names(split_results))
 ```
 
-Separate ANOVAs for each similarity bin showed that the effect of variability condition was significant only when items were relatively similar (`r apa(split_results$c20, "variability_condition")` for 20 deg. similarity and `r apa(split_results$c45, "variability_condition")` for 45 deg.) but not when they were very different (`r apa(split_results$c135, "variability_condition")`). With both 20 and 40 similarity, responses were closer to the more variable item, as @fig-bias-analysis shows.
+We calculated a bias measure to determine whether participants' reports were systematically pulled toward the higher-variability item. For this analysis, we included only unequal-variance trials and coded the signed error so that positive values indicate responses shifted toward the higher-variability item.
+
+The one-way repeated-measures ANOVA showed no effect of similarity bin, `r apa(bias_anova, "similarity_bin")`. One-sample t-tests showed a significant positive bias only at 20 deg. similarity (`r mean_bias[similarity_bin == 20, descr]`, `r bias_ttests[similarity_bin == 20, apa]`). The corresponding tests were not significant at 45 deg. (`r mean_bias[similarity_bin == 45, descr]`, `r bias_ttests[similarity_bin == 45, apa]`) or at 135 deg. (`r mean_bias[similarity_bin == 135, descr]`, `r bias_ttests[similarity_bin == 135, apa]`).
+
+```{r}
+#| fig-cap: "Individual differences in mean absolute error and mean bias toward the higher-variability item. Each point is one observer; bias is averaged across unequal-variance trials. The line shows the least-squares fit."
+#| label: fig-bias-accuracy-individual-differences
+
+subject_bias_overall <- uneq_bias[, .(mean_bias = mean(bias_rel_to_high_var_raw, na.rm = TRUE)), by = subject]
+subject_abs_err <- tomatoes[!is.na(abs_be_c) & is_outlier==F, .(mean_abs_err = mean(abs_be_c, na.rm = TRUE)), by = subject]
+individual_differences <- merge(subject_bias_overall, subject_abs_err, by = 'subject')
+indiv_diff_cor <- cor.test(individual_differences$mean_abs_err, individual_differences$mean_bias)
+
+ggplot(individual_differences, aes(x = mean_abs_err, y = mean_bias)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_point() +
+  geom_smooth(method = MASS::rlm, se = FALSE) +
+  labs(
+    x = "Mean Absolute Error (degrees)",
+    y = "Mean Bias Toward Higher-Variability Item (degrees)"
+  )
+```
+
+At the individual-differences level, observers with larger mean absolute error tended to show less positive bias toward the higher-variability item, `r apa(indiv_diff_cor)`. So in these data, less accurate observers were less biased toward the higher-variability item.
 
