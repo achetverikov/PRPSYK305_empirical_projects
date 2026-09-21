@@ -79,6 +79,8 @@ default_theme<-theme_light(base_size = default_font_size, base_line_size = defau
 theme_set(default_theme)
 
 default_colors <-c('#3498db','#009f06','#FF7F00', '#7A378B','#f72034')
+decoy_colors <- c(competitor = default_colors[1], target = default_colors[2],
+                  no_decoy = default_colors[3])
 scale_colour_discrete <- function(...) scale_colour_manual(values=default_colors, ...)
 scale_fill_discrete <- function(...) scale_fill_manual(values=default_colors, ...)
 scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22), ...)
@@ -164,22 +166,23 @@ min_quality = 2
 
 datam <- melt(data, 
      measure.vars = patterns(gr_angle = "^gr_angle_.*", price = "^price_.*", quality = '^quality',
-                             stim_number = "stim_number", label_price = "label_price", label_quality = "label_quality" ))
+                             stim_number = "stim_number", label_price = "label_price", label_quality = "label_quality",
+                             stim_type = "^stim_type_.*" ))
 
 datam[,rel_price := (max_price - price)/(max_price-min_price)]
 datam[,rel_quality := (quality-min_quality)/(max_quality-min_quality)]
 datam[,attr_sum:=rel_price+rel_quality, by = .(trial_counter, variable, participant)]
-datam[,stim_type := factor(variable, levels = c(1:3), labels = c('target','competitor','decoy'))]
 datam[,stim_chosen:=as.numeric(response==stim_number)]
 datam[,rt:=rt/1000]
 
 data_out <- datam[stim_chosen==1, .(participant,trial_counter,condition,target_to_competitor,decoy_reduction, decoy_on, chosen_item  = stim_type, correct, rt)][order(participant, trial_counter)]
-fwrite(data_out, 'decoy.csv')
+stopifnot(data_out[, all(correct == (chosen_item == 'target'))])
+fwrite(data_out, 'decoy_2026.csv')
 ```
 
 ## Instructions
 
-Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `decoy.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `decoy_2026.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
 
 * `participant` - random ID identifying a participant
 * `trial_counter` - trial number within the experiment
@@ -201,7 +204,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 ## Descriptive statistics
 
 ```{r descr_stats}
-data_descr <- data_out[,.(.N, mean_RT = mean(rt)), keyby = .(participant, decoy_present = decoy_on!='no_decoy', chosen_item)][,.(chosen_item, decoy_present, prop_choices = 100*N/sum(N), mean_RT), by = participant]
+data_descr <- data_out[,.(.N, mean_RT = mean(rt)), keyby = .(participant, decoy_present = decoy_on!='no_decoy', chosen_item)][,.(chosen_item, prop_choices = 100*N/sum(N), mean_RT), by = .(participant, decoy_present)]
 ```
 
 On average, participants chose `r data_descr[decoy_present==T,apa_mean_conf(prop_choices), by = .(chosen_item)][,paste_and(sprintf('%ss in %s', chosen_item, V1))]`% of trials (here and later the confidence intervals are reported in square brackets after the means) when a decoy was present.  Response times were `r data_descr[decoy_present==T,apa_mean_conf(mean_RT), by = .(chosen_item)][,paste_and(V1)]`, respectively. When the decoy was absent, participants chose `r data_descr[decoy_present==F,apa_mean_conf(prop_choices), by = .(chosen_item)][,paste_and(sprintf('%ss in %s', chosen_item, V1))]`% of trials with response times of `r data_descr[decoy_present==F,apa_mean_conf(mean_RT), by = .(chosen_item)][,paste_and(V1)]`.
@@ -211,7 +214,7 @@ On average, participants chose `r data_descr[decoy_present==T,apa_mean_conf(prop
 ```{r}
 #| fig-cap: Response count as a function of condition and decoy type.
 #| label: fig-resp_count
-ggplot(data_out, aes(x = chosen_item, fill = decoy_on))+geom_bar( position = 'dodge')+labs(y = 'How many times an item is chosen', fill = 'Decoy is similar to...', x = 'Item type')+facet_grid(~condition)
+ggplot(data_out, aes(x = chosen_item, fill = decoy_on))+geom_bar(position = 'dodge')+labs(y = 'How many times an item is chosen', fill = 'Decoy is similar to...', x = 'Item type')+facet_grid(~condition)+scale_fill_manual(values = decoy_colors, breaks = names(decoy_colors))
 ```
 
 @fig-resp_count shows the relationship between the decoy type (whether decoy is similar to a target or a competitor), condition (whether there were numeric labels present [numeric] or not [perceptual]), and the probability of choosing one of the response options. 
@@ -222,7 +225,7 @@ ggplot(data_out, aes(x = chosen_item, fill = decoy_on))+geom_bar( position = 'do
 
 res <- ez::ezANOVA(data_out, dv = 'correct', within = c('condition','decoy_on'), wid = .(participant), type = 3)
 
-plot_pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w', within_subj =  T)+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
+plot_pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w', within_subj =  T)+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = decoy_colors, breaks = names(decoy_colors))
 ```
 
 The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not; correct here means that a target is chosen) as a dependent variable (@fig-accuracy). The results are provided below:
@@ -238,7 +241,7 @@ The effects of decoy type and condition were then analyzed using a within-subjec
 
 res_rt <- ez::ezANOVA(data_out, dv = 'rt', within = c('condition','decoy_on'), wid = .(participant), type = 3)
 
-plot_pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'participant', design = 'w', within_subj = T)+labs(y = 'Response time, s', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
+plot_pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'participant', design = 'w', within_subj = T)+labs(y = 'Response time, s', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = decoy_colors, breaks = names(decoy_colors))
 ```
 
 Lastly, we analyzed the response times again using a within-subject ANOVA (@fig-rt). The results are provided below:
