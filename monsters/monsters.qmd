@@ -168,7 +168,9 @@ data[,expected_lengthf:=factor(expected_length )]
 data[,trial_i_within_blockf:=factor(trial_i_within_block )]
 data[,trial_i_within_block_rel:=trial_i_within_block-expected_length]
 data[,prevLengthDiff := shift(lengthDiff), by = participant]
-data <- data[participant%nin% data[,.(mean_nn(correct), mean_nn(rt)), by = participant][V1<.9, participant]]
+# Discard datasets without task performance, like the empty results above: one
+# result had responses on only 9 of 576 trials, none of them correct.
+data <- data[participant%nin% data[,.(n_correct = sum(correct %in% 1)), by = participant][n_correct == 0, participant]]
 data[,log_rt:=log(rt)]
 
 fwrite(data[,.(participant, block_i, expected_length, real_length, lengthDiff, trial_i_within_block, next_wave_in, targetMeanColor, distractorMeanColor, clicked_monster_id, correct, rt)], file = 'monsters.csv')
@@ -194,7 +196,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 {{< include monsters_methods.md >}}
 
 ## Participants
-`r str_to_sentence(xfun::numbers_to_words(finished_study_ids[,.N]))` participants took part in the study. `r str_to_sentence(xfun::numbers_to_words(finished_study_ids[,.N]-data[,lengthu(participant)]))` participant was excluded because they had zero correct responses. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
+`r str_to_sentence(xfun::numbers_to_words(data[,lengthu(participant)]))` participants took part in the study. None were excluded. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
 
 ## Results
 

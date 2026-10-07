@@ -138,12 +138,60 @@ flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_s
 data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
   print(x)
   comp_res_id <- str_extract(x, '(?<=comp-result_)\\d{6}')
-  data <- read_json(x)
-  if (length(data)<10){
+  raw_data <- read_json(x)
+  if (length(raw_data)<10){
     return(data.frame())
   }
-  data <- data[sapply(data, \(x) x$trial_type=='psychophysics' &&  'seq_type' %in% names(x))]
-  data <- rbindlist(lapply(data, \(x) data.table(trial_index = x$trial_index, category = x$category, final_img = unlist(x$final_imgs), correct = unlist(x$final_correct), tot_correct = x$correct, rt_last = unlist(x$rt[[length(x$rt)]]))))
+
+  # Retain the randomized learning position for every exemplar. This is needed
+  # to calculate the actual item-specific distance from study to test.
+  study_trials <- raw_data[sapply(raw_data, \(trial) {
+    identical(trial$trial_type, 'psychophysics') &&
+      !('seq_type' %in% names(trial)) &&
+      all(c('category', 'ex', 'state', 'filename') %in% names(trial))
+  })]
+  study_items <- rbindlist(Map(\(trial, study_position) data.table(
+    category = trial$category,
+    exemplar = as.integer(trial$ex),
+    studied_state = as.integer(trial$state),
+    study_trial_index = as.integer(trial$trial_index),
+    study_position = as.integer(study_position)
+  ), study_trials, seq_along(study_trials)))
+
+  test_trials <- raw_data[sapply(raw_data, \(trial) {
+    identical(trial$trial_type, 'psychophysics') &&
+      'seq_type' %in% names(trial)
+  })]
+  data <- rbindlist(Map(\(trial, test_position) data.table(
+    trial_index = as.integer(trial$trial_index),
+    test_position = as.integer(test_position),
+    category = trial$category,
+    final_img = unlist(trial$final_imgs),
+    correct = as.integer(unlist(trial$final_correct)),
+    tot_correct = as.integer(trial$correct),
+    rt_last = unlist(trial$rt[[length(trial$rt)]])
+  ), test_trials, seq_along(test_trials)))
+
+  data[, exemplar := as.integer(str_extract(final_img, "(?<=e)\\d+"))]
+  data <- merge(
+    data, study_items, by = c('category', 'exemplar'),
+    all.x = TRUE, sort = FALSE)
+  # retention_lag counts intervening study/test items, excluding the studied
+  # item and its own test. trial_index_distance retains the raw jsPsych index
+  # difference, which also includes intervening instruction trials.
+  data[, `:=`(
+    retention_lag = length(study_trials) - study_position + test_position - 1L,
+    trial_index_distance = trial_index - study_trial_index
+  )]
+  stopifnot(
+    length(study_trials) == 200L,
+    length(test_trials) == 100L,
+    nrow(study_items) == 200L,
+    nrow(data) == 200L,
+    uniqueN(study_items, by = c('category', 'exemplar')) == 200L,
+    !anyNA(data[, .(study_trial_index, study_position, test_position, retention_lag)]),
+    all(data$retention_lag >= 0L)
+  )
   data[,subject_id:=str_extract(x, 'study_result_(\\d+)', group = 1)]
   data[,result_id:=str_extract(x, 'comp-result_(\\d+)', group = 1)]
   data <- merge(data, finished_study_ids, by.x = 'subject_id', by.y = 'id')
@@ -161,10 +209,25 @@ descr_stats <- data[,.(corr = mean(correct), rt = mean(unique(rt_last)), binom_p
 # data <- data[participant%in%descr_stats[binom_p<.05, participant]]
 
 # Extract exemplar and state information from filenames
-data[, exemplar := as.integer(str_extract(final_img, "(?<=e)\\d+"))]
 data[, chosen_state := as.integer(str_extract(final_img, "(?<=s)\\d+"))]
 
-fwrite(data[,.(participant, trial_index, category, chosen_img = final_img, correct, tot_correct, rt_last, exemplar, chosen_state)], file = 'objects_and_states.csv')
+fwrite(data[,.(
+  participant,
+  trial_index,
+  test_position,
+  category,
+  chosen_img = final_img,
+  correct,
+  tot_correct,
+  rt_last,
+  exemplar,
+  chosen_state,
+  studied_state,
+  study_trial_index,
+  study_position,
+  retention_lag,
+  trial_index_distance
+)], file = 'objects_and_states.csv')
 
 ```
 
@@ -181,6 +244,12 @@ Read the report below and use it as a basis for your presentation. You can also 
 * `rt_last` - response time for the trial in milliseconds
 * `exemplar` - which exemplar of the category (1 or 2)
 * `chosen_state` - which state was chosen by the participant (1 or 2)
+* `studied_state` - which state of that exemplar was presented during learning
+* `study_trial_index` - raw jsPsych trial index when the exemplar was presented
+* `study_position` - position of the exemplar among the 200 learning items
+* `test_position` - position of the category among the 100 test trials
+* `retention_lag` - number of intervening learning/test items between presentation and test
+* `trial_index_distance` - test trial index minus study trial index, including instruction trials
 
 Note that in the filenames (e.g., "./Images/locks/e1_s2.jpg"), "e" refers to exemplar number and "s" refers to state number. For each trial, participants needed to choose the correct state for each of the two exemplars from a given category.
 
