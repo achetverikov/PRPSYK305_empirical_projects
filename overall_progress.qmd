@@ -115,9 +115,9 @@ title_code_matching <- data.frame(
     "Automaticity and expectations"
   ),
   study_name = c(
-    "JATOS_COLORS_AND_IMAGERY_STUDY_2026_UID",
+    "JATOS_COLORS_AND_IMAGERY_STUDY_2026H_UID",
     "JATOS_TEMP_ATT_STUDY_UID",
-    "JATOS_DECOY_STUDY_2026_UID",
+    "JATOS_DECOY_STUDY_2026H_UID",
     "JATOS_TOMATO_STUDY_2026_UID",
     "JATOS_OBJ_STUDY_UID",
     "JATOS_MONSTERS_STUDY_UID"
@@ -148,6 +148,7 @@ res <- lapply(study_uids, \(study_uid) {
   system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
   
   metadata <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
+  if (!NROW(metadata)) return(NULL)  # study without any results yet
   setDT(metadata)
   unlink(paste0(temp_dir, "/*"))
   metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
