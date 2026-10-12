@@ -34,7 +34,6 @@ library(jsonlite)
 library(stringr)
 library(knitr)
 library(Hmisc)
-library(superb)
 
 default_font = 'Gill Sans Nova Light'
 

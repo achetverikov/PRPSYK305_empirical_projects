@@ -35,7 +35,6 @@ library(stringr)
 library(ez)
 library(knitr)
 library(Hmisc)
-library(superb)
 library(circhelp)
 library(patchwork)
 
@@ -185,8 +184,8 @@ data_color <- suppressWarnings(rbindlist(lapply(c(flist_colors), \(x){
   data[!is.na(right_colors), right_sd:=circ_sd_360(as.numeric(str_split(right_colors,',', simplify = T))), by = right_colors]
   data[,left_colors:=NULL]
   data[,right_colors:=NULL]
-  setnafill(data, type = "locf",cols = c('target_color','distr_color','left_color','right_color','target_sd', 'distr_sd', 'target_x', 'distr_x', 'similarity_bin', 'color_bin','left_sd','right_sd','cue_pos','cued_color','cue_n'))
-  setnafill(data, type = "nocb",cols = c('score'))
+  setnafill(data, type = "locf",cols = c('target_color','distr_color','left_color','right_color','target_sd', 'distr_sd', 'target_x', 'distr_x', 'similarity_bin', 'color_bin','left_sd','right_sd','cue_pos','cued_color','cue_n','rt'))
+  setnafill(data, type = "nocb", cols = c('score'))
   #
   if (browser_check[1, .(trial_type)]=='browser-check'){
     data[,c('window_width','window_height'):=browser_check[,.(width, height)]]

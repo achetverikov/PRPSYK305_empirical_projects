@@ -39,7 +39,6 @@ library(knitr)
 library(Hmisc)
 library(ez)
 library(emmeans)
-library(superb)
 
 rebuild_data <- exists("params", inherits = FALSE) &&
   is.list(params) &&
@@ -429,7 +428,7 @@ abs_error_anova <- afex::aov_ez(
   type = 3, fun_aggregate = mean
 )
 
-means_by_var <- get_superb_ci(
+means_by_var <- get_adjusted_ci(
   tomatoes[!is.na(abs_err) & is_outlier==F],   
   wid = c('subject'),  
   within = c('variability_condition'), 
@@ -477,7 +476,7 @@ bias_anova <- afex::aov_ez(
 )
 
 subject_bias <- uneq_bias[, .(bias_rel_to_high_var_raw = mean(bias_rel_to_high_var_raw, na.rm = TRUE)), by = .(subject, similarity_bin)]
-mean_bias <- get_superb_ci(
+mean_bias <- get_adjusted_ci(
   subject_bias,
   wid = c('subject'),
   within = c('similarity_bin'),

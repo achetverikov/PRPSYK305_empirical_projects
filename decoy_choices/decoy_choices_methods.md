@@ -20,12 +20,12 @@ The experiment was programmed using jsPsych 7.3.4 (de Leeuw, 2015) with the psyc
 In the "numeric" condition, explicit pricing information (ranging from $200 to $5000) and quality ratings (from 2.0 to 5.0 stars) were displayed alongside the bars. In the "perceptual" condition, only the bars were shown without the numeric values. Products were positioned in a triangular arrangement, equidistant from the center of the screen (200 pixels radius).
 
 ## Design
-The experiment closely followed the design of Spektor et al. (2022, Cognition), who investigated the role of metacognition in the decoy effect. It employed a fully factorial within-subjects design with the following factors:
+The bar-display task was inspired by Spektor, Kellen, and Klauer (2022), who compared perceptual and preferential choices and examined attraction, repulsion, and information search ([Cognition, 225, 105164](https://doi.org/10.1016/j.cognition.2022.105164)). It employed a fully factorial within-subjects design with the following factors:
 
 - Condition (perceptual, numeric): whether explicit numeric values were shown
 - Correct option (NH, WL): narrow & high vs. wide & low option as the target
 - Set type (H, W): which parameter of the competitor option was adjusted (height or width)
-- Decoy type (stronger, weaker, both): on which dimension the decoy was reduced compared to the target
+- Decoy type (stronger, weaker, both): whether the fuller bar, less full bar, or both bars of the attached option were reduced
 - Target-to-competitor difference (0.03, 0.1): how much worse the competitor was relative to the target
 - Decoy reduction (0.05, 0.2): how much worse the decoy was
 - Decoy placement (target, competitor): whether the decoy was asymmetrically dominated by the target or the competitor

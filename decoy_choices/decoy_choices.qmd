@@ -34,7 +34,6 @@ library(jsonlite)
 library(stringr)
 library(knitr)
 library(Hmisc)
-library(superb)
 
 default_font = 'Gill Sans Nova Light'
 
@@ -203,16 +202,16 @@ On average, participants chose `r data_descr[,apa_mean_conf(prop_choices), by = 
 ## Do decoys influence choices differently under different conditions?
 
 ```{r}
-#| fig-cap: Response count as a function of condition and decoy type.
+#| fig-cap: Response count as a function of condition and decoy placement.
 #| label: fig-resp_count
 
 ggplot(data_out, aes(x = chosen_item, fill = decoy_on))+geom_bar( position = 'dodge')+labs(y = 'How many times an item is chosen', fill = 'Decoy is similar to...', x = 'Item type')+facet_grid(~condition)
 ```
 
-@fig-resp_count shows the relationship between the decoy type (whether decoy is similar to a target or a competitor), condition (whether there were numeric labels present [numeric] or not [perceptual]), and the probability of choosing one of the response options. 
+@fig-resp_count shows the relationship between the decoy placement (whether decoy is similar to a target or a competitor), condition (whether there were numeric labels present [numeric] or not [perceptual]), and the probability of choosing one of the response options.
 
 ```{r}
-#| fig-cap: The effects of decoy type and condition on the accuracy of observers' responses.
+#| fig-cap: The effects of decoy placement and condition on the accuracy of observers' responses.
 #| label: fig-accuracy
 
 res <- ez::ezANOVA(data_out, dv = 'correct', within = c('condition','decoy_on'), wid = .(participant), type = 3)
@@ -220,15 +219,15 @@ res <- ez::ezANOVA(data_out, dv = 'correct', within = c('condition','decoy_on'),
 plot_pointrange(data_out, aes(x = condition, y = correct, color = decoy_on), wid = 'participant', design = 'w', within_subj =  T)+labs(y = 'Proportion of correct responses', color = 'Decoy is similar to...', x = 'Condition')+scale_color_manual(values = default_colors)
 ```
 
-The effects of decoy type and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable (@fig-accuracy). The results are provided below:
+The effects of decoy placement and condition were then analyzed using a within-subject ANOVA with response accuracy (correct or not) as a dependent variable (@fig-accuracy). The results are provided below:
 
 * the effect of condition `r apa(res, 'condition')`
-* the effect of decoy type `r apa(res, 'decoy_on')`
+* the effect of decoy placement `r apa(res, 'decoy_on')`
 * the effect of their interaction `r apa(res, 'condition:decoy_on')`
 
 
 ```{r}
-#| fig-cap: The effects of decoy type and condition on the observers' response times.
+#| fig-cap: The effects of decoy placement and condition on the observers' response times.
 #| label: fig-rt
 
 res_rt <- ez::ezANOVA(data_out, dv = 'rt', within = c('condition','decoy_on'), wid = .(participant), type = 3)
@@ -239,5 +238,5 @@ plot_pointrange(data_out, aes(x = condition, y = rt, color = decoy_on), wid = 'p
 Lastly, we analyzed the response times again using a within-subject ANOVA (@fig-rt). The results are provided below:
 
 * the effect of condition `r apa(res_rt, 'condition')`
-* the effect of decoy type `r apa(res_rt, 'decoy_on')`
+* the effect of decoy placement `r apa(res_rt, 'decoy_on')`
 * the effect of their interaction `r apa(res_rt, 'condition:decoy_on')`

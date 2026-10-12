@@ -36,7 +36,7 @@ library(stringr)
 library(knitr)
 library(Hmisc)
 library(ez)
-library(superb)
+
 
 default_font = 'Gill Sans Nova Light'
 
@@ -405,7 +405,7 @@ The analysis of bias in the averaging task revealed that the effect of similarit
 ```{r}
 #| label: explore-interaction
 # Compute mean and CI for each group
-mean_bias <- get_superb_ci(
+mean_bias <- get_adjusted_ci(
   tomatoes[ task_type=='averaging'],   
   wid = c('subject'),  
   within = c('noise', 'similarity_bin'), 
