@@ -41,13 +41,22 @@ jobs:
           Rscript tests/report_filters.R
       
       - name: Render Quarto Project
+        id: render
         shell: bash
         run: |
-          # Find all QMD files in the repository
-          find . -name "*.qmd" -type f | while read -r file; do
+          failed=0
+          echo '## Report rendering' >> "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r -d '' file; do
             echo "Rendering $file"
-            quarto render "$file" --to html
-          done
+            if quarto render "$file" --to html; then
+              printf -- '- Passed: `%s`\n' "$file" >> "$GITHUB_STEP_SUMMARY"
+            else
+              printf -- '- Failed: `%s`\n' "$file" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error file=$file::Report rendering failed; continuing with other reports."
+              failed=$((failed + 1))
+            fi
+          done < <(git ls-files -z -- '*.qmd')
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
         # uses: quarto-dev/quarto-actions/render@v2
         # with:
         #   to: html # If set, it will be equivalent to `quarto render --to html`
@@ -76,9 +85,16 @@ jobs:
           # Add all necessary files
           git add *
       
-          # Commit changes if there are any
-          git commit -m 'Rendered markdown files' || echo "No changes to commit"
-      
-          # Push changes
-          git push origin || echo "No changes to commit"
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m 'Rendered markdown files'
+            git push origin
+          fi
+
+      - name: Report rendering failures
+        if: steps.render.outputs.failed != '0'
+        run: |
+          echo "${{ steps.render.outputs.failed }} report(s) failed. See the report rendering summary."
+          exit 1
 
