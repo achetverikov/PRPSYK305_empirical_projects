@@ -26,6 +26,7 @@ format:
 ---
 ```{r setup}
 library(httr)
+source('scripts/report_helpers.R')
 library(apastats2)
 library(data.table)
 library(jsonlite)
@@ -160,7 +161,7 @@ res <- rbindlist(res, idcol = 'study_name', fill = T)
 
 
 res[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
-res <- res[startDate>Sys.getenv("JATOS_START_DATE")]
+res <- filter_jatos_start_date(res)
 
 title_code_matching <- merge(res[,.N, by = study_name], title_code_matching, by = c('study_name'))
 

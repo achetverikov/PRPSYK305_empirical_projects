@@ -28,6 +28,7 @@ format:
 
 ```{r setup}
 library(httr)
+source('../scripts/report_helpers.R')
 library(apastats2)
 library(data.table)
 library(jsonlite)
@@ -125,7 +126,7 @@ setDT(finished_study_ids)
 finished_study_ids[,id:=as.character(id)]
 finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
 finished_study_ids[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
-finished_study_ids <- finished_study_ids[startDate>Sys.getenv("JATOS_START_DATE")]
+finished_study_ids <- filter_jatos_start_date(finished_study_ids)
 
 comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
   dt <- as.data.table(metadata$componentResults[[x]])
@@ -170,7 +171,6 @@ datam[,c('diff_to_next','diff_to_prev'):=list(angle_diff_180(value,shift(value, 
 data<-merge(data, datam[real_target_position==item_pos, .(participant, block, trial_index, target_ori = value, diff_to_next, diff_to_prev)], by = c('participant', 'block', 'trial_index'))
 data[,N_by_participant:=.N, by = participant]
 data <- data[N_by_participant>100]
-data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 
 export_cols <- c(
     'participant', 'block', 'trial_number', 't1_ori', 't2_ori', 't3_ori',

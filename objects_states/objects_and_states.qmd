@@ -28,6 +28,7 @@ format:
 
 ```{r setup}
 library(httr)
+source('../scripts/report_helpers.R')
 library(apastats2)
 library(data.table)
 library(jsonlite)
@@ -124,7 +125,7 @@ setDT(finished_study_ids)
 finished_study_ids[,id:=as.character(id)]
 finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
 finished_study_ids[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
-finished_study_ids <- finished_study_ids[startDate>Sys.getenv("JATOS_START_DATE")]
+finished_study_ids <- filter_jatos_start_date(finished_study_ids)
 
 comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
   dt <- as.data.table(metadata$componentResults[[x]])
@@ -203,7 +204,6 @@ unlink(paste0(temp_dir, "/*"))
 
 data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
 data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
-data <- data[, lapply(.SD, function(col) if (!all(na.omit(col == col[!is.na(col)][1]))) col else NULL)]
 descr_stats <- data[,.(corr = mean(correct), rt = mean(unique(rt_last)), binom_p = binom.test(sum(correct), .N)$p.value), by = participant]
 # data <- data[participant%in%descr_stats[binom_p<.05, participant]]
 

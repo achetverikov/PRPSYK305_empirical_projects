@@ -2,7 +2,9 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    paths: ['**.qmd']
+    paths: ['**.qmd', '**/*methods*.md', 'scripts/**', 'tests/**',
+            '**/.renvignore', 'renv.lock', 'renv/settings.json',
+            '.github/workflows/render-quarto.yml']
   workflow_dispatch:
 
 name: Render quarto
@@ -32,6 +34,11 @@ jobs:
         with:
           r-version: 'renv' 
       - uses: r-lib/actions/setup-renv@v2
+
+      - name: Check R dependencies and report filters
+        run: |
+          Rscript -e 'status <- renv::status(); if (!status$synchronized) stop("R dependencies are out of sync with renv.lock.")'
+          Rscript tests/report_filters.R
       
       - name: Render Quarto Project
         shell: bash
@@ -50,8 +57,10 @@ jobs:
           JATOS_TOKEN: ${{ secrets.JATOS_TOKEN }}
           JATOS_DECOY_STUDY_UID: ${{ secrets.JATOS_DECOY_STUDY_UID }}
           JATOS_DECOY_STUDY_2026_UID: ${{ secrets.JATOS_DECOY_STUDY_2026_UID }}
+          JATOS_DECOY_STUDY_2026H_UID: ${{ secrets.JATOS_DECOY_STUDY_2026H_UID }}
           JATOS_COLORS_AND_IMAGERY_STUDY_UID: ${{ secrets.JATOS_COLORS_AND_IMAGERY_STUDY_UID }}
           JATOS_COLORS_AND_IMAGERY_STUDY_2026_UID: ${{ secrets.JATOS_COLORS_AND_IMAGERY_STUDY_2026_UID }}
+          JATOS_COLORS_AND_IMAGERY_STUDY_2026H_UID: ${{ secrets.JATOS_COLORS_AND_IMAGERY_STUDY_2026H_UID }}
           JATOS_OBJ_STUDY_UID: ${{ secrets.JATOS_OBJ_STUDY_UID }}
           JATOS_TOMATO_STUDY_UID: ${{ secrets.JATOS_TOMATO_STUDY_UID }}
           JATOS_TOMATO_STUDY_2026_UID: ${{ secrets.JATOS_TOMATO_STUDY_2026_UID }}            
