@@ -134,6 +134,13 @@ Restoring the CSV automatically re-enables rendering. Every other tracked report
 is still attempted; a genuine render failure still fails the job after successful
 reports have been published.
 
+The repaired CI dependency check and regression tests passed, then a fresh render
+exposed a separate temporal-attention reader error: newer comment/feedback
+components store JSON objects rather than jsPsych trial arrays. The report now
+selects only `FINISHED` sessions and their completed main-task component by its
+recorded UUID. Practice, reloaded attempts, comments and feedback are excluded
+before parsing task trials. A regression check covers these mixed component types.
+
 ## Earlier snapshot
 
 The audit covers all **11 course study IDs** configured in `setenv.R`, including

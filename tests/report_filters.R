@@ -1,6 +1,7 @@
 library(data.table)
 library(apastats2)
 library(Hmisc)
+library(stringr)
 source('scripts/report_helpers.R')
 
 local({
@@ -60,3 +61,25 @@ empty_report <- knitr::knit(text = c(
 stopifnot(grepl('No eligible task data are available.', empty_report, fixed = TRUE),
           !grepl('This analysis must not appear.', empty_report, fixed = TRUE))
 cat('Empty reports show a data-availability notice and skip analyses.\n')
+
+# Run the temporal report's actual selectors on mixed old/new component metadata.
+local({
+  lines <- readLines('temporal_attention/temporal_attention.qmd')
+  metadata <- data.frame(id = 1:2, studyState = c('FINISHED', 'STARTED'),
+    startDate = 0, endDate = c(1, NA))
+  selection <- grep('^finished_study_ids <- metadata', lines)
+  eval(parse(text = lines[selection]))
+  stopifnot(identical(finished_study_ids$id, 1L))
+  comp_res_meta <- data.table(id = 11:15,
+    componentUuid = c(rep('a17f07c4-4aeb-43f2-bc2a-cd17e122056b', 2),
+      '83fe0c24-aa81-4968-8fc5-51ef7b0289a8',
+      'a1bda501-c8ed-4919-8d22-2e326e65f953',
+      'de4bf845-5725-4339-bd34-1da2887eb4d2'),
+    componentState = c('FINISHED', 'RELOADED', rep('FINISHED', 3)))
+  flist <- sprintf('study_result_1/comp-result_%s/data.txt', comp_res_meta$id)
+  selection <- grep("^flist <- flist\\[str_extract\\(flist, 'comp-result_", lines)
+  stopifnot(length(selection) == 1L)
+  eval(parse(text = lines[selection + 0:2]))
+  stopifnot(identical(flist, 'study_result_1/comp-result_11/data.txt'))
+})
+cat('Temporal attention selects finished main components, excluding reloads, practice, comments and feedback.\n')
