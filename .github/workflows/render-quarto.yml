@@ -23,10 +23,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install curl devtools
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install libcurl4-openssl-dev 
+          sudo apt-get install -y libcurl4-openssl-dev libfontconfig1-dev \
+            libfreetype6-dev libharfbuzz-dev libfribidi-dev libpng-dev \
+            libtiff-dev libjpeg-dev libwebp-dev
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         
@@ -34,6 +36,8 @@ jobs:
         with:
           r-version: 'renv' 
       - uses: r-lib/actions/setup-renv@v2
+        with:
+          bypass-cache: 'never'
 
       - name: Check R dependencies and report filters
         run: |
@@ -47,6 +51,10 @@ jobs:
           failed=0
           echo '## Report rendering' >> "$GITHUB_STEP_SUMMARY"
           while IFS= read -r -d '' file; do
+            if [[ "$file" == 'tomato_experience/tomatoes_experience.qmd' && ! -f tomato_experience/tomatoes.csv ]]; then
+              printf -- '- Archived: `%s` (requires the unavailable historical `tomatoes.csv`; existing output retained).\n' "$file" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
             echo "Rendering $file"
             if quarto render "$file" --to html; then
               printf -- '- Passed: `%s`\n' "$file" >> "$GITHUB_STEP_SUMMARY"

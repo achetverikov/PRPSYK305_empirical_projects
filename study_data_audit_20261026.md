@@ -118,6 +118,22 @@ figure was visually checked, and its six observations and original ordinal score
 were checked against the saved component data. Small-sample uncertainty remains;
 the report describes this correlation as preliminary.
 
+## CI dependency repair
+
+The first run after publishing these report changes stopped before rendering:
+the progress plot uses `ragg`, but its dependency was absent from `renv.lock`.
+The lockfile now records the installed `ragg` 1.5.2, `systemfonts` 1.3.2 and
+`textshaping` 1.0.5, preserving every existing package record and R version.
+The workflow installs their Linux system dependencies, retains the strict
+`renv::status()` check, and saves restored packages even if a later check fails.
+
+The original tomato report remains unchanged. While its archived `tomatoes.csv`
+is unavailable, CI identifies that one report as archived in the job summary
+and preserves its existing HTML instead of attempting an analysis without inputs.
+Restoring the CSV automatically re-enables rendering. Every other tracked report
+is still attempted; a genuine render failure still fails the job after successful
+reports have been published.
+
 ## Earlier snapshot
 
 The audit covers all **11 course study IDs** configured in `setenv.R`, including
