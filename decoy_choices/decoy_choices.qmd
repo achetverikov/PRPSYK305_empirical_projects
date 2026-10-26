@@ -108,8 +108,13 @@ system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Auth
 unzip(res_file, exdir=temp_dir)  # unzip your file
 
 metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
+report_data_available(metadata, 'No result records are available from Mindprobe for this legacy study. Its study ID is unchanged; archived results are needed to rebuild this report.')
 
-finished_study_ids <- metadata[,c('id', "endDate", "startDate")]
+```
+
+```{r}
+
+finished_study_ids <- metadata[metadata$studyState == 'FINISHED', c('id', "endDate", "startDate")]
 setDT(finished_study_ids)
 finished_study_ids[,id:=as.character(id)]
 finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
@@ -122,6 +127,11 @@ comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
 
 flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
 flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
+report_data_available(flist, 'No saved task data are available for finished sessions after the configured start-date cutoff. No analyses were performed.')
+
+```
+
+```{r}
 
 data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
   print(x)
@@ -142,6 +152,11 @@ data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
 }), fill = T))
 
 unlink(paste0(temp_dir, "/*"))
+report_data_available(data, 'The selected result files contain no task trials. No analyses were performed.')
+
+```
+
+```{r}
 
 data[,participant:=as.numeric(factor(subject_id, levels = sample(unique(data$subject_id)), labels = 1:length(unique(data$subject_id))))]
 # data[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]

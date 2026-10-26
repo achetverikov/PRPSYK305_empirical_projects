@@ -50,3 +50,13 @@ invisible(lapply(reports, function(file) {
   }
 }))
 cat('Report date filters and one-participant monsters cleanup passed.\n')
+
+empty_report <- knitr::knit(text = c(
+  '```{r, results="hide"}',
+  'report_data_available(data.table(), "No eligible task data are available.")',
+  '```', 'This analysis must not appear.',
+  '```{r}', 'stop("Empty inputs reached the analysis.")', '```'
+), quiet = TRUE, envir = environment())
+stopifnot(grepl('No eligible task data are available.', empty_report, fixed = TRUE),
+          !grepl('This analysis must not appear.', empty_report, fixed = TRUE))
+cat('Empty reports show a data-availability notice and skip analyses.\n')

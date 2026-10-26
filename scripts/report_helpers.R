@@ -13,3 +13,10 @@ filter_jatos_start_date <- function(data) {
   cutoff <- as.POSIXct(start_date, format = '%Y-%m-%d', tz = 'UTC')
   data[!is.na(startDate) & startDate > cutoff]
 }
+
+report_data_available <- function(data, message) {
+  if (!NROW(data)) {
+    knitr::knit_exit(append = paste0('\n\n## Data availability\n\n', message, '\n'))
+  }
+  invisible(NROW(data) > 0)
+}

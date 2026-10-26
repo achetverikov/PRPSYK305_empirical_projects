@@ -115,7 +115,7 @@ randstring <- function(n = 5000) {
 ```{r}
 #| label: load_data
 data_list <- list()
-study_uid <- Sys.getenv('JATOS_COLORS_AND_IMAGERY_STUDY_2026_UID')
+study_uid <- Sys.getenv('JATOS_COLORS_AND_IMAGERY_STUDY_2026H_UID')
 
 temp_dir <- tempdir(check = T)
 temp_dir <- gsub('\\\\', '/', temp_dir)
@@ -137,7 +137,7 @@ unzip(res_file, exdir=temp_dir)  # unzip your file
 
 metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
 
-finished_study_ids <- metadata[,c('id', "endDate", "startDate")]
+finished_study_ids <- metadata[metadata$studyState == 'FINISHED', c('id', "endDate", "startDate")]
 setDT(finished_study_ids)
 finished_study_ids[,id:=as.character(id)]
 finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
@@ -152,16 +152,31 @@ comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
 
 flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
 flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
-# on the next line, one id is manually excluded as this participant did the vviq part twice, so we use the latest result
-flist_vviq <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId%in%c('29868','40213')&id!='1067177',id]]
-flist_colors <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId%nin%c('29868','40213'),id]]
+# Fall 2026 questionnaire, afterimage task and main blocks; exclude practice.
+flist_vviq <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId == 49456, id]]
+flist_afterimage <- flist[str_extract(flist, 'comp-result_(\\d+)', group = 1) %in%
+  comp_res_meta[componentId == 49460 & componentState == 'FINISHED', id]]
+flist_colors <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId %in% c(49458, 49459), id]]
 
 data_vviq <- rbindlist(lapply(c(flist_vviq), \(x){
   data <- read_json(x)
+  responses <- unlist(lapply(data, \(trial) {
+    if (is.list(trial$response) && length(trial$response) == 4L) trial$response
+  }))
   data.table(participant = str_extract(x, 'study_result_(\\d+)', group = 1),
              result_id=str_extract(x, 'comp-result_(\\d+)', group = 1),
-             vviq = sum(sapply(data,\(q) ifelse(length(q$response)==4, do.call(sum, q$response), 0))))
+             vviq = if (length(responses) == 16L) sum(responses) else NA_real_)
 }))
+
+data_afterimage <- rbindlist(lapply(flist_afterimage, \(x) {
+  rating <- Filter(\(trial) isTRUE(trial$ai_run == 2) &&
+    identical(trial$ai_page, 'relative_rating'), read_json(x))
+  stopifnot(length(rating) == 1L, rating[[1]]$ai_code %in% -2:3)
+  data.table(participant = str_extract(x, 'study_result_(\\d+)', group = 1),
+    afterimage_relative = if (rating[[1]]$ai_code == 3) NA_real_ else rating[[1]]$ai_code)
+}))
+stopifnot(!anyDuplicated(data_afterimage$participant))
+data_vviq <- merge(data_vviq, data_afterimage, by = 'participant', all.x = TRUE)
 
 data_color <- suppressWarnings(rbindlist(lapply(c(flist_colors), \(x){
   # print(x)
@@ -170,9 +185,6 @@ data_color <- suppressWarnings(rbindlist(lapply(c(flist_colors), \(x){
   if (length(data)<10){
     return(data.frame())
   }
-  browser_check <- data.frame(data[[1]])
-  setDT(browser_check)
-  
   data <- data[sapply(data, \(x) x$trial_type=='psychophysics')]
   data <- rbindlist(data, fill = T)
   if ('score' %nin% colnames(data)){
@@ -187,10 +199,6 @@ data_color <- suppressWarnings(rbindlist(lapply(c(flist_colors), \(x){
   data[,right_colors:=NULL]
   setnafill(data, type = "locf",cols = c('target_color','distr_color','left_color','right_color','target_sd', 'distr_sd', 'target_x', 'distr_x', 'similarity_bin', 'color_bin','left_sd','right_sd','cue_pos','cued_color','cue_n','rt'))
   setnafill(data, type = "nocb", cols = c('score'))
-  #
-  if (browser_check[1, .(trial_type)]=='browser-check'){
-    data[,c('window_width','window_height'):=browser_check[,.(width, height)]]
-  }
   data<-data[trial_type=='psychophysics'&seq_type=='response']
 
   data[,participant:=str_extract(x, 'study_result_(\\d+)', group = 1)]
@@ -205,12 +213,11 @@ unlink(paste0(temp_dir, "/*"))
 
 data_color <- data_color[participant%in%finished_study$id]
 data_vviq <- data_vviq[participant%in%finished_study$id]
-data_color <- merge(data_color, data_vviq, by = 'participant')
+data_color <- merge(data_color, data_vviq[, .(participant, vviq)], by = 'participant')
 data_color[,participant:=paste0('S',as.numeric(factor(participant, levels = sample(unique(data_color$participant)), labels = 1:length(unique(data_color$participant)))))]
 
 data_color[,c('startDate','endDate','result_id','avg_frame_time'):=NULL]
 
-setnafill(data_color, type = "locf", cols = c('window_height','window_width'))
 data_color <- drop_empty_cols(data_color)
 
 
@@ -248,7 +255,7 @@ data_color<-data_color[participant%nin%data_color[,.(.N, circ_sd_360(error, na.r
 
 data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant]
 db_res <- lapply(split(data_color[!is.na(error),], by = c('participant', 'cue_n')), \(dt){
-  dt[,c('be_c','is_outlier','rc_pred','rc_group','shifted_td_dist','mad_outlier'):=remove_cardinal_biases_discrete(error, similarity_bin, space = 360)[,c('be_c','is_outlier')], by = .(participant, cue_n)]
+  dt[,c('be_c','is_outlier'):=remove_cardinal_biases_discrete(error, similarity_bin, space = 360)[,c('be_c','is_outlier')], by = .(participant, cue_n)]
   dt
 })
 
@@ -302,7 +309,7 @@ Read the report and use it as a basis for your presentation. You can also downlo
 * `bias_to_distr_corr` - bias-corrected bias toward the distractor in degrees
 
 
-{{< include colors_and_imagery_methods.md >}}
+{{< include colors_and_imagery_methods_2026H.md >}}
 
 ## Participants
 `r str_to_sentence(xfun::numbers_to_words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(xfun::numbers_to_words(finished_study[,.N]-data_color[,lengthu(participant)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
@@ -318,14 +325,40 @@ Read the report and use it as a basis for your presentation. You can also downlo
 
 ggplot(data_vviq, aes(x = vviq)) +
   geom_dotplot(binwidth = 1) +
-  coord_cartesian(xlim = c(0,80)) +
+  coord_cartesian(xlim = c(0,64)) +
   labs(x = 'VVIQ score', y = 'Count') +
   theme(axis.title.y = element_blank(), 
         axis.text.y = element_blank(), 
         axis.ticks.y = element_blank())
 ```
 
-The VVIQ scores were between `r min(data_vviq$vviq)` and `r max(data_vviq$vviq)` (`r apa_mean_conf(data_vviq$vviq)`).
+The VVIQ scores were between `r min(data_vviq$vviq, na.rm = TRUE)` and `r max(data_vviq$vviq, na.rm = TRUE)` (`r apa_mean_conf(data_vviq$vviq)`). Questionnaire scores are missing for `r sum(is.na(data_vviq$vviq))` sessions without all 16 saved questionnaire responses; these sessions contribute to the memory analyses but not the questionnaire correlations.
+
+## How do the two imagery measures relate?
+
+```{r}
+#| label: fig-vviq-afterimage
+#| fig-cap: "VVIQ versus the second-run imagery–afterimage comparison rating. Each point is one session with both measures. Ratings range from −2 (self-generated imagery much weaker than the afterimage) to +2 (much stronger); zero indicates similar experiences. Points are jittered vertically for visibility. Practice-run ratings, unsure comparisons and incomplete questionnaires are excluded."
+#| fig-asp: 0.65
+
+imagery_pairs <- data_vviq[is.finite(vviq) & is.finite(afterimage_relative)]
+imagery_correlation <- if (nrow(imagery_pairs) >= 3L &&
+  uniqueN(imagery_pairs$vviq) > 1L && uniqueN(imagery_pairs$afterimage_relative) > 1L) {
+  imagery_pairs[, cor.test(vviq, afterimage_relative, method = 'spearman', exact = FALSE)]
+} else NULL
+
+ggplot(imagery_pairs, aes(vviq, afterimage_relative)) +
+  geom_hline(yintercept = 0, linetype = 'dashed', colour = 'grey80') +
+  geom_point(position = position_jitter(width = 0, height = 0.055, seed = 20261026),
+    size = 2, colour = default_colors[1]) +
+  scale_x_continuous(limits = c(0, 64), breaks = seq(0, 64, 16)) +
+  scale_y_continuous(breaks = -2:2, limits = c(-2.25, 2.25)) +
+  labs(x = 'VVIQ score (higher = more vivid)',
+    y = 'Imagery relative to afterimage\n(second-run rating)',
+    subtitle = paste('Complete pairs:', nrow(imagery_pairs)))
+```
+
+The comparison uses `r nrow(imagery_pairs)` complete pairs out of `r nrow(data_vviq)` finished sessions. Higher values on both measures indicate stronger imagery, with the afterimage rating expressing imagery strength relative to the participant's afterimage. `r if (is.null(imagery_correlation)) 'A correlation cannot be estimated with fewer than three complete pairs or without variation in both measures.' else paste0('The Spearman rank correlation was _ρ_ = ', f_round(imagery_correlation$estimate, strip.lead.zeros = TRUE), ', _p_ ', round_p(imagery_correlation$p.value), '. The small sample makes this estimate preliminary.')` The correlation uses the original ordinal ratings, without plotting jitter.
 
 ## Color recall accuracy
 
