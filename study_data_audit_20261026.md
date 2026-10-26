@@ -141,6 +141,15 @@ selects only `FINISHED` sessions and their completed main-task component by its
 recorded UUID. Practice, reloaded attempts, comments and feedback are excluded
 before parsing task trials. A regression check covers these mixed component types.
 
+Verified on GitHub Actions on 26 October 2026, approximately 15:20 Europe/Paris:
+[run 40334938529, attempt 2](https://github.com/achetverikov/PRPSYK305_empirical_projects/actions/runs/40334938529/attempts/2)
+passed dependency consistency, regression tests, all nine non-archived report
+renders and publishing. The first attempt was retried after unusually slow Ubuntu
+package installation. The published temporal CSV contains 900 main trials from
+six sessions, 150 each, with no practice rows. The imagery plot and correlation
+are present in the published HTML; the original tomato source and HTML remain
+unchanged. Source fixes: `08b7cdf` and `d3efc82`; generated reports: `e8d6536`.
+
 ## Earlier snapshot
 
 The audit covers all **11 course study IDs** configured in `setenv.R`, including
