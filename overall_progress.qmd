@@ -93,6 +93,10 @@ gg_crosshair <- function(xint = 0, yint = 0, lty = 2) {
 }
 ```
 
+Updated `r format(Sys.time(), "%d %B %Y at %H:%M", tz = "Europe/Oslo")` (Europe/Oslo).
+
+Counts show sessions marked `FINISHED` in JATOS, starting after `r Sys.getenv("JATOS_START_DATE")` at 00:00 UTC. Analysis samples can be smaller when task data are missing or excluded.
+
 ```{r}
 library(httr)
 headers = c(
@@ -184,10 +188,10 @@ progress_plot <- ggplot(title_code_matching, aes(y = reorder(short_title, N))) +
   scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Completion %") +
   geom_text(aes(x = N, label = paste0(N, " (", completion_percentage, "%)")), 
             hjust = -0.1, color = "black", size = 3.5) +
-  labs(title = "Study Progress: Current vs. Target Participants",
+  labs(title = "Study Progress: Finished Sessions vs. Target",
        subtitle = paste0("Target: ", total_participants, " participants per study"),
        y = "Study", 
-       x = "Number of Participants") +
+       x = "Number of Finished Sessions") +
 
   theme(plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5),

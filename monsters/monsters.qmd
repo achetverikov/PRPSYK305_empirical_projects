@@ -118,7 +118,7 @@ unzip(res_file, exdir=temp_dir)  # unzip your file
 
 metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
 
-finished_study_ids <- metadata[,c('id', "endDate", "startDate")]
+finished_study_ids <- metadata[metadata$studyState == 'FINISHED', c('id', "endDate", "startDate")]
 setDT(finished_study_ids)
 finished_study_ids[,id:=as.character(id)]
 finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
@@ -132,6 +132,8 @@ comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
 
 flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
 flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
+flist <- flist[str_extract(flist, 'comp-result_(\\d+)', group = 1) %in%
+  comp_res_meta[componentState == 'FINISHED', id]]
 
 data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
   
@@ -148,6 +150,9 @@ data <- suppressWarnings(rbindlist(lapply(c(flist), \(x){
     ct
   })
   data <- rbindlist(data, fill = T)
+  # Practice trials have no main-task block or trial-position identifiers.
+  if (!all(c('block_i', 'trial_i_within_block') %in% names(data))) return(data.table())
+  data <- data[!is.na(block_i) & !is.na(trial_i_within_block)]
 
   data[,subject_id:=str_extract(x, 'study_result_(\\d+)', group = 1)]
   data[,result_id:=str_extract(x, 'comp-result_(\\d+)', group = 1)]
@@ -177,7 +182,7 @@ fwrite(data[,.(participant, block_i, expected_length, real_length, lengthDiff, t
 
 # Instructions
 
-Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `tomatoes.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
+Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `monsters.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
 
 - `participant`: Participant identifier.
 - `block_i`: Block number within the experiment (indicating progression through sequences).
@@ -195,7 +200,7 @@ Read the report below and use it as a basis for your presentation. You can also 
 {{< include monsters_methods.md >}}
 
 ## Participants
-`r str_to_sentence(xfun::numbers_to_words(data[,lengthu(participant)]))` participants took part in the study. None were excluded. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
+Of `r nrow(finished_study_ids)` finished sessions after the cohort cutoff, `r data[,lengthu(participant)]` contributed main-task data to the analyses. Only completed components were eligible; practice trials and sessions with no correct task responses were excluded. Participation required a web browser with a minimum screen resolution of 1000 × 600 pixels. Demographic information was not collected.
 
 ## Results
 
@@ -230,7 +235,7 @@ t_res <- rbindlist(lapply(1:8, \(trial_i){
 t_test_1_vs_rest <- dcast(data[correct==1], participant ~ trial_i_within_block==1 , value.var = 'rt', fun = mean)[,t.test(`TRUE`,`FALSE`, paired = T)]
 ```
 
-We first confirmed a general 'priming of pop-out' effect. By comparing response time (RT) on each trial with the average of subsequent trials, we found significantly longer RT (`r t_res[1, descr]`) for the first trial in each sequence ('wave'). This indicates that participants needed more time to respond when a new sequence began. However, following the first trial, no significant differences were observed between any position and subsequent positions (all _p_ > `r round_p(min(t_res[2:8, p.value]), include.rel=F)`). This suggests that performance quickly stabilized after the initial trial in each sequence.
+We assessed 'priming of pop-out' by comparing response time (RT) at each position with the average of subsequent positions in the sequence. The first-position comparison gave `r t_res[1, descr]`. For positions 2–8, `r sum(t_res[2:8, p.value] < .05)` of seven comparisons had unadjusted _p_ < .05; the smallest p-value was _p_ `r round_p(min(t_res[2:8, p.value]))`. These position comparisons are unadjusted for multiple testing.
 
 ```{r}
 #| label: fig-bef_aft_exp_end
@@ -262,7 +267,7 @@ t_res2 <- rbindlist(lapply(c(-2,-1,1,2), \(trial_i){
 mean_rt_by_rel_pos <- data_exp[, .(rt= mean_nn(rel_rt)), by = .(participant,trial_i_within_block_rel)]
 ```
 
-We then tested how participants' expectations affect response times. To this end, we analyzed the trials preceding and following the expected end point in sequences that continued longer than expected. The response time at the expected end point was taken as the baseline (for example, if the sequence was expected to end at the 5th trial, the RT for that trial would be the baseline for comparison for that sequence). We found that RTs were numerically lower than the baseline in trials preceding the expected end point (`r mean_rt_by_rel_pos[trial_i_within_block_rel==-1, apa_mean_conf(rt)]`) and numerically higher following the expected end point (`r mean_rt_by_rel_pos[trial_i_within_block_rel==1, apa_mean_conf(rt)]`). The difference between these trials was only marginally significant (`r t_res1[1,descr]`; position ±1 at @fig-bef_aft_exp_end), and no effect was found for trials further away from the expected end of the sequence (`r t_res1[2,descr]`; position ±2 at @fig-bef_aft_exp_end).
+We then tested how participants' expectations affect response times. To this end, we analyzed the trials preceding and following the expected end point in sequences that continued longer than expected. The response time at the expected end point was taken as the baseline (for example, if the sequence was expected to end at the 5th trial, the RT for that trial would be the baseline for comparison for that sequence). The mean RT relative to baseline was `r mean_rt_by_rel_pos[trial_i_within_block_rel==-1, apa_mean_conf(rt)]` on the trial immediately before the expected end point and `r mean_rt_by_rel_pos[trial_i_within_block_rel==1, apa_mean_conf(rt)]` immediately after it. The paired before-versus-after comparison gave `r t_res1[1,descr]` at position ±1 and `r t_res1[2,descr]` at position ±2 (@fig-bef_aft_exp_end).
 
 ```{r}
 #| label: fig-rt_first

@@ -37,6 +37,7 @@ library(ez)
 library(knitr)
 library(Hmisc)
 library(circhelp)
+library(GGally)
 library(patchwork)
 
 fig_width <- 7
@@ -98,11 +99,7 @@ gg_crosshair <- function(xint = 0, yint = 0, lty = 2) {
   list(gv, gh)
 }
 
-headers = c(
-  `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
-)
 
-jatos_url <- 'https://jatos.mindprobe.eu/jatos/api/v1/'
 
 randstring <- function(n = 5000) {
   a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
@@ -120,22 +117,8 @@ study_uid <- Sys.getenv('JATOS_COLORS_AND_IMAGERY_STUDY_2026H_UID')
 temp_dir <- tempdir(check = T)
 temp_dir <- gsub('\\\\', '/', temp_dir)
 temp_dir <- paste(temp_dir, randstring(1), sep = '/')
-res_file <- paste0(tempfile(),'.zip')
 
-req_url <-  sprintf("%sresults/metadata?studyUuid=%s", jatos_url, study_uid)
-system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
-
-metadata <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
-setDT(metadata)
-unlink(paste0(temp_dir, "/*"))
-finished_study <- metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
-
-
-url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
-system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
-unzip(res_file, exdir=temp_dir)  # unzip your file
-
-metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
+metadata <- read_jatos_export(study_uid, temp_dir)
 
 finished_study_ids <- metadata[metadata$studyState == 'FINISHED', c('id', "endDate", "startDate")]
 setDT(finished_study_ids)
@@ -144,6 +127,7 @@ finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
 finished_study_ids[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
 finished_study_ids <- finished_study_ids[!is.na(endDate)] 
 finished_study_ids <- filter_jatos_start_date(finished_study_ids)
+finished_study <- copy(finished_study_ids)
 
 comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
   dt <- as.data.table(metadata$componentResults[[x]])
@@ -152,11 +136,18 @@ comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
 
 flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
 flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
-# Fall 2026 questionnaire, afterimage task and main blocks; exclude practice.
-flist_vviq <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId == 49456, id]]
-flist_afterimage <- flist[str_extract(flist, 'comp-result_(\\d+)', group = 1) %in%
-  comp_res_meta[componentId == 49460 & componentState == 'FINISHED', id]]
-flist_colors <- flist[str_extract(flist,'comp-result_(\\d+)', group = 1)%in%comp_res_meta[componentId %in% c(49458, 49459), id]]
+# Select the last finished attempt of each component within each study session.
+component_files <- merge(data.table(
+  file = flist,
+  participant = str_extract(flist, 'study_result_(\\d+)', group = 1),
+  result_id = str_extract(flist, 'comp-result_(\\d+)', group = 1)),
+  comp_res_meta[, .(result_id = as.character(id), componentId, componentState, endDate)],
+  by = 'result_id')
+component_files <- component_files[componentState == 'FINISHED'][order(endDate), .SD[.N],
+  by = .(participant, componentId)]
+flist_vviq <- component_files[componentId == 49456, file]
+flist_afterimage <- component_files[componentId == 49460, file]
+flist_colors <- component_files[componentId %in% c(49458, 49459), file]
 
 data_vviq <- rbindlist(lapply(c(flist_vviq), \(x){
   data <- read_json(x)
@@ -176,7 +167,11 @@ data_afterimage <- rbindlist(lapply(flist_afterimage, \(x) {
     afterimage_relative = if (rating[[1]]$ai_code == 3) NA_real_ else rating[[1]]$ai_code)
 }))
 stopifnot(!anyDuplicated(data_afterimage$participant))
+stopifnot(!anyDuplicated(data_vviq$participant))
+data_vviq <- merge(finished_study_ids[, .(participant = id)], data_vviq,
+  by = 'participant', all.x = TRUE)
 data_vviq <- merge(data_vviq, data_afterimage, by = 'participant', all.x = TRUE)
+stopifnot(nrow(data_vviq) == nrow(finished_study_ids))
 
 data_color <- suppressWarnings(rbindlist(lapply(c(flist_colors), \(x){
   # print(x)
@@ -213,8 +208,14 @@ unlink(paste0(temp_dir, "/*"))
 
 data_color <- data_color[participant%in%finished_study$id]
 data_vviq <- data_vviq[participant%in%finished_study$id]
-data_color <- merge(data_color, data_vviq[, .(participant, vviq)], by = 'participant')
-data_color[,participant:=paste0('S',as.numeric(factor(participant, levels = sample(unique(data_color$participant)), labels = 1:length(unique(data_color$participant)))))]
+data_color <- merge(data_color, data_vviq[, .(participant, vviq, afterimage_relative)],
+  by = 'participant', all.x = TRUE)
+
+# Use the same pseudonyms for imagery measures and memory trials; never join randomized IDs.
+participant_ids <- sample(data_vviq$participant)
+data_color[, participant := paste0('S', match(participant, participant_ids))]
+data_vviq[, participant := paste0('S', match(participant, participant_ids))]
+data_vviq[, result_id := NULL]
 
 data_color[,c('startDate','endDate','result_id','avg_frame_time'):=NULL]
 
@@ -274,7 +275,7 @@ data_color[,similarity_binf:=factor(similarity_bin)]
 
 
 
-fwrite(data_color[,.(participant, vviq, block, trial_number, similarity_bin, target_color, distr_color, td_dist, left_color, right_color, target_noise, distr_noise, target_x, distr_x, cue_n, cue_pos, cued_color, resp_color,  error, abs_err, noise, be_c, abs_be_c,  bias_to_distr_raw, bias_to_distr_corr     )], 'colors_and_imagery.csv')
+fwrite(data_color[,.(participant, vviq, afterimage_relative, block, trial_number, similarity_bin, target_color, distr_color, td_dist, left_color, right_color, target_noise, distr_noise, target_x, distr_x, cue_n, cue_pos, cued_color, resp_color,  error, abs_err, noise, be_c, abs_be_c, is_outlier, bias_to_distr_raw, bias_to_distr_corr     )], 'colors_and_imagery.csv')
 ```
 
 # Instructions
@@ -282,7 +283,8 @@ fwrite(data_color[,.(participant, vviq, block, trial_number, similarity_bin, tar
 Read the report and use it as a basis for your presentation. You can also download the preprocessed data from `colors_and_imagery.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
 
 * `participant` - participant identifier (factor with levels "S1", "S2", etc.)
-* `vviq` - Visual Vividness Imagery Questionnaire score (higher scores indicate more vivid imagery)
+* `vviq` - Visual Vividness Imagery Questionnaire sum (0–64; higher scores indicate more vivid imagery)
+* `afterimage_relative` - second-run imagery/afterimage comparison (−2 to +2; higher means stronger imagery relative to the afterimage; unsure is missing)
 * `block` - block number (0 = training, 1-2 = main experimental blocks)
 * `trial_number` - trial number within the experiment
 * `similarity_bin` - angular distance between target and distractor colors in degrees (20°, 45°, or 135°)
@@ -312,7 +314,7 @@ Read the report and use it as a basis for your presentation. You can also downlo
 {{< include colors_and_imagery_methods_2026H.md >}}
 
 ## Participants
-`r str_to_sentence(xfun::numbers_to_words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(xfun::numbers_to_words(finished_study[,.N]-data_color[,lengthu(participant)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
+`r str_to_sentence(xfun::numbers_to_words(finished_study[,.N]))` participants took part in the study. `r str_to_sentence(xfun::numbers_to_words(finished_study[,.N]-data_color[,lengthu(participant)]))` participants were excluded under the existing memory-quality rules (circular SD of errors above 60 deg. or fewer than 250 main-task report rows).
 
 # Results
 
@@ -332,33 +334,7 @@ ggplot(data_vviq, aes(x = vviq)) +
         axis.ticks.y = element_blank())
 ```
 
-The VVIQ scores were between `r min(data_vviq$vviq, na.rm = TRUE)` and `r max(data_vviq$vviq, na.rm = TRUE)` (`r apa_mean_conf(data_vviq$vviq)`). Questionnaire scores are missing for `r sum(is.na(data_vviq$vviq))` sessions without all 16 saved questionnaire responses; these sessions contribute to the memory analyses but not the questionnaire correlations.
-
-## How do the two imagery measures relate?
-
-```{r}
-#| label: fig-vviq-afterimage
-#| fig-cap: "VVIQ versus the second-run imagery–afterimage comparison rating. Each point is one session with both measures. Ratings range from −2 (self-generated imagery much weaker than the afterimage) to +2 (much stronger); zero indicates similar experiences. Points are jittered vertically for visibility. Practice-run ratings, unsure comparisons and incomplete questionnaires are excluded."
-#| fig-asp: 0.65
-
-imagery_pairs <- data_vviq[is.finite(vviq) & is.finite(afterimage_relative)]
-imagery_correlation <- if (nrow(imagery_pairs) >= 3L &&
-  uniqueN(imagery_pairs$vviq) > 1L && uniqueN(imagery_pairs$afterimage_relative) > 1L) {
-  imagery_pairs[, cor.test(vviq, afterimage_relative, method = 'spearman', exact = FALSE)]
-} else NULL
-
-ggplot(imagery_pairs, aes(vviq, afterimage_relative)) +
-  geom_hline(yintercept = 0, linetype = 'dashed', colour = 'grey80') +
-  geom_point(position = position_jitter(width = 0, height = 0.055, seed = 20261026),
-    size = 2, colour = default_colors[1]) +
-  scale_x_continuous(limits = c(0, 64), breaks = seq(0, 64, 16)) +
-  scale_y_continuous(breaks = -2:2, limits = c(-2.25, 2.25)) +
-  labs(x = 'VVIQ score (higher = more vivid)',
-    y = 'Imagery relative to afterimage\n(second-run rating)',
-    subtitle = paste('Complete pairs:', nrow(imagery_pairs)))
-```
-
-The comparison uses `r nrow(imagery_pairs)` complete pairs out of `r nrow(data_vviq)` finished sessions. Higher values on both measures indicate stronger imagery, with the afterimage rating expressing imagery strength relative to the participant's afterimage. `r if (is.null(imagery_correlation)) 'A correlation cannot be estimated with fewer than three complete pairs or without variation in both measures.' else paste0('The Spearman rank correlation was _ρ_ = ', f_round(imagery_correlation$estimate, strip.lead.zeros = TRUE), ', _p_ ', round_p(imagery_correlation$p.value), '. The small sample makes this estimate preliminary.')` The correlation uses the original ordinal ratings, without plotting jitter.
+The VVIQ scores were between `r min(data_vviq$vviq, na.rm = TRUE)` and `r max(data_vviq$vviq, na.rm = TRUE)` (`r apa_mean_conf(data_vviq$vviq)`). Questionnaire scores are missing for `r sum(is.na(data_vviq$vviq))` sessions without all 16 saved questionnaire responses; a missing questionnaire score does not by itself exclude a session from the memory analyses.
 
 ## Color recall accuracy
 
@@ -389,68 +365,68 @@ ez_res_abs_err <- ezANOVA(
 )
 ```
 
-A repeated-measures ANOVA indicated a significant effect of target noise `r apa(ez_res_abs_err, 'target_noise')` and a target × distractor noise interaction `r apa(ez_res_abs_err, 'target_noise:distr_noise')`. Performance dropped significantly when the targets became more noisy: `r apa(dcast(data_color, participant~target_noise, value.var = 'abs_err', fun = mean)[,t.test(low, high, paired = T)])`. However, the effect of distractor noise was noticeable only when the target had a low noise level `r apa(dcast(data_color[target_noise=='low'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` but not when it had a high noise level `r apa(dcast(data_color[target_noise=='high'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])`.
+A repeated-measures ANOVA tested the effect of target noise (`r apa(ez_res_abs_err, 'target_noise')`) and the target × distractor noise interaction (`r apa(ez_res_abs_err, 'target_noise:distr_noise')`). A paired comparison of raw absolute error between low- and high-noise targets gave `r apa(dcast(data_color, participant~target_noise, value.var = 'abs_err', fun = mean)[,t.test(low, high, paired = T)])`. Paired comparisons of distractor noise using bias-corrected absolute error gave `r apa(dcast(data_color[target_noise=='low'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` at low target noise and `r apa(dcast(data_color[target_noise=='high'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` at high target noise.
 
-## Does imagery score predict the recall accuracy?
+## Imagery measures and memory accuracy
+
+The matrix in @fig-imagery-correlations compares VVIQ, the second-run imagery/afterimage rating, and memory mean absolute error (MAE). Higher VVIQ and afterimage ratings indicate stronger imagery; lower memory MAE indicates better accuracy. Memory MAE is the mean absolute bias-corrected angular error across non-outlier main-task reports, after the existing participant exclusions. Run 1 of the afterimage task is practice; the unsure response (code 3) is missing rather than a high imagery score.
 
 ```{r}
-#| label: fig-vviq-corr
-#| fig-cap: "Relationship between VVIQ scores and color memory performance. (A) Overall correlation between VVIQ and recall accuracy. (B) Correlation between VVIQ and the effect of target noise. (C) Correlation between VVIQ and the difference in performance between 2nd and 1st reported items."
-#| fig-width: 10
-#| fig-asp: 0.4
+#| label: imagery-participant-metrics
+memory_metrics <- data_color[is_outlier == FALSE,
+  .(memory_mae = mean(abs_be_c), n_memory_reports = .N), by = participant]
+imagery_metrics <- merge(data_vviq, memory_metrics, by = 'participant', all.x = TRUE)
+stopifnot(nrow(imagery_metrics) == nrow(finished_study_ids),
+  !anyDuplicated(imagery_metrics$participant),
+  all(is.na(imagery_metrics$vviq) | imagery_metrics$vviq %between% c(0, 64)),
+  all(is.na(imagery_metrics$afterimage_relative) | imagery_metrics$afterimage_relative %in% -2:2))
+fwrite(imagery_metrics, 'imagery_participant_metrics.csv')
 
-# Prepare data summaries
-perf_vviq <- data_color[is_outlier==F,.(mem_perf_bc = circ_sd_360(be_c), 
-                           bias_to_distr = circ_mean_360(bias_to_distr_corr),
-                           .N), 
-                        by = .(participant, vviq)]
-
-perf_vviq_by_cue_n <- data_color[is_outlier==F,.(mem_perf_bc = circ_sd_360(be_c), 
-                                    bias_to_distr = circ_mean_360(bias_to_distr_corr)), 
-                                 by = .(participant, vviq, cue_n)]
-
-perf_vviq_by_noise <- data_color[is_outlier==F,.(mem_perf_bc = circ_sd_360(be_c), 
-                                    bias_to_distr = circ_mean_360(bias_to_distr_corr)), 
-                                 by = .(participant, vviq, target_noise)]
-
-
-perf_vviq_out <- data_color[,.(mem_perf_n_out = mean_nn(is_outlier)),                                     
-                                 by = .(participant, vviq)]
-
-# Create derived measures
-delta_by_vviq <- dcast(perf_vviq_by_noise, 
-                       participant+vviq~target_noise, 
-                       value.var = 'mem_perf_bc')[,delta:=high-low]
-
-delta_cue_n_by_vviq <- dcast(perf_vviq_by_cue_n, 
-                            participant+vviq~cue_n, 
-                            value.var = 'mem_perf_bc')[,delta:=`2`-`1`]
-
-# Common theme for all plots
-
-regression_method = lm
-# Plot 1: Overall correlation between VVIQ and recall accuracy
-p1 <- ggplot(perf_vviq, aes(x = vviq, y = mem_perf_bc)) +
-  geom_point() +
-  geom_smooth(method = regression_method) +
-  labs(x = "VVIQ score", y = "Memory performance\n(SD of errors)") 
-  
-
-# Plot 2: Correlation between VVIQ and noise effect
-p2 <- ggplot(delta_by_vviq, aes(x = vviq, y = delta)) +
-  geom_point() +
-  geom_smooth(method = regression_method) +
-  labs(x = "VVIQ score", y = "Effect of noise\n(High - Low)") 
-# Plot 3: Correlation between VVIQ and delta between 1st and 2nd item performance
-p3 <- ggplot(delta_cue_n_by_vviq, aes(x = vviq, y = delta)) +
-  geom_point() +
-  geom_smooth(method = regression_method) +
-  labs(x = "VVIQ score", y = "Performance difference\n(2nd item - 1st item)") 
-
-# Combine plots with patchwork and add tags
-(p1 + p2 + p3) + 
-  plot_annotation(tag_levels = 'A') &
-  theme(plot.tag = element_text(face = "bold", size = 12))
+correlation_specs <- data.table(
+  x = c('vviq', 'vviq', 'afterimage_relative'),
+  y = c('afterimage_relative', 'memory_mae', 'memory_mae'),
+  comparison = c('VVIQ – imagery/afterimage', 'VVIQ – memory MAE', 'Imagery/afterimage – memory MAE'),
+  method = c('spearman', 'pearson', 'spearman'))
+imagery_correlations <- rbindlist(lapply(seq_len(nrow(correlation_specs)), function(i) {
+  spec <- correlation_specs[i]
+  pairs <- imagery_metrics[is.finite(get(spec$x)) & is.finite(get(spec$y))]
+  test <- if (nrow(pairs) >= 3L && uniqueN(pairs[[spec$x]]) > 1L && uniqueN(pairs[[spec$y]]) > 1L)
+    cor.test(pairs[[spec$x]], pairs[[spec$y]], method = spec$method, exact = FALSE) else NULL
+  data.table(comparison = spec$comparison, method = spec$method, n = nrow(pairs),
+    estimate = if (is.null(test)) NA_real_ else unname(test$estimate),
+    p = if (is.null(test)) NA_real_ else test$p.value)
+}))
+fwrite(imagery_correlations, 'imagery_correlations.csv')
 ```
 
-Overall, there was no correlation between recall accuracy and VVIQ score (`r perf_vviq[,apa(cor.test(mem_perf_bc, vviq))]`). Furthermore, the drop in performance in the high noise condition compared to the low noise condition also did not correlate with VVIQ scores (`r delta_by_vviq[,apa(cor.test(delta, vviq))]`). Finally, we analyzed the difference in performance between the second item and the first item (where positive values indicate worse performance for the second item), but also did not see any correlation with VVIQ score (`r delta_cue_n_by_vviq[,apa(cor.test(delta, vviq))]`).
+The table contains `r nrow(imagery_metrics)` finished sessions. VVIQ is available for `r sum(is.finite(imagery_metrics$vviq))`, the afterimage rating for `r sum(is.finite(imagery_metrics$afterimage_relative))`, and memory MAE for `r sum(is.finite(imagery_metrics$memory_mae))`. Each panel uses the sessions with both of its measures available; the imagery-only comparison retains sessions excluded from the memory analyses.
+
+```{r}
+#| label: fig-imagery-correlations
+#| fig-cap: "Scatterplot matrix of VVIQ, second-run imagery/afterimage ratings and memory MAE. Each off-diagonal panel shows one point per participant with both measures, an ordinary least-squares line and its 95% confidence band; diagonal panels show distributions. The regression lines are descriptive, including for the ordinal afterimage rating. Missing values are omitted separately for each pair."
+#| fig-width: 9
+#| fig-asp: 1
+
+smooth_panel <- list(continuous = GGally::wrap('smooth', method = 'lm', se = TRUE,
+  colour = default_colors[1], alpha = 0.5, size = 1.7))
+imagery_matrix <- GGally::ggpairs(as.data.frame(imagery_metrics),
+  columns = c('vviq', 'afterimage_relative', 'memory_mae'),
+  columnLabels = c('VVIQ', 'Imagery / afterimage', 'Memory MAE (deg.)'),
+  lower = smooth_panel, upper = smooth_panel,
+  diag = list(continuous = 'densityDiag'), progress = FALSE) +
+  theme(strip.text = element_text(size = 10), axis.text = element_text(size = 8))
+imagery_matrix
+
+ggsave('imagery_correlation_matrix.png', imagery_matrix, width = 9, height = 9, dpi = 200, bg = 'white')
+```
+
+Correlations involving the ordinal afterimage rating use Spearman's rho; VVIQ versus memory MAE uses Pearson's r. Tests use the original scores and pairwise complete observations. The p-values below are exploratory and unadjusted for multiple comparisons. A correlation is left missing if there are fewer than three complete pairs or either measure has no variation.
+
+```{r}
+#| results: asis
+knitr::kable(imagery_correlations[, .(Comparison = comparison,
+  Method = ifelse(method == 'spearman', 'Spearman rho', 'Pearson r'),
+  N = n, Correlation = round(estimate, 3), p = vapply(p, round_p, character(1)))])
+```
+
+The participant-level values and pairwise statistics are available in `imagery_participant_metrics.csv` and `imagery_correlations.csv`. Memory exclusion does not turn a valid questionnaire or afterimage response into missing data.

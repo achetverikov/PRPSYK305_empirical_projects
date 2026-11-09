@@ -83,3 +83,56 @@ local({
   stopifnot(identical(flist, 'study_result_1/comp-result_11/data.txt'))
 })
 cat('Temporal attention selects finished main components, excluding reloads, practice, comments and feedback.\n')
+
+# Run the monsters report's selectors on mixed session/component states and practice rows.
+local({
+  lines <- readLines('monsters/monsters.qmd')
+  metadata <- data.frame(id = 1:2, studyState = c('FINISHED', 'STARTED'),
+                         startDate = 0, endDate = c(1, NA))
+  selection <- grep('^finished_study_ids <- metadata', lines)
+  eval(parse(text = lines[selection]))
+  stopifnot(identical(finished_study_ids$id, 1L))
+
+  comp_res_meta <- data.table(id = 11:12, componentState = c('FINISHED', 'RELOADED'))
+  flist <- sprintf('study_result_1/comp-result_%s/data.txt', comp_res_meta$id)
+  selection <- grep("^flist <- flist\\[str_extract\\(flist, 'comp-result_", lines)
+  stopifnot(length(selection) == 1L)
+  eval(parse(text = lines[selection + 0:1]))
+  stopifnot(identical(flist, 'study_result_1/comp-result_11/data.txt'))
+
+  data <- data.table(block_i = c(NA, 1, 1),
+                     trial_i_within_block = c(NA, 1, 2), rt = c(100, 500, 600))
+  selection <- which(startsWith(lines, '  data <- data[!is.na(block_i)'))
+  stopifnot(length(selection) == 1L)
+  eval(parse(text = lines[selection]))
+  stopifnot(identical(data$rt, c(500, 600)), nrow(data) == 2L)
+})
+cat('Monsters excludes unfinished sessions, reloaded components and practice trials.\n')
+
+local({
+  lines <- readLines('tomato_experience/tomatoes_experience_2026.qmd')
+  metadata <- data.frame(id = 1:2, studyState = c('FINISHED', 'STARTED'),
+                         startDate = 0, endDate = c(1, NA))
+  eval(parse(text = lines[grep('^finished_study_ids <- metadata', lines)]))
+  stopifnot(identical(finished_study_ids$id, 1L))
+  comp_res_meta <- data.table(id = 11:13, componentId = c(39794, 39795, 39795),
+    componentState = c('FINISHED', 'FINISHED', 'RELOADED'))
+  flist <- sprintf('study_result_1/comp-result_%s/data.txt', comp_res_meta$id)
+  selection <- grep("^flist <- flist\\[str_extract\\(flist, 'comp-result_", lines)
+  eval(parse(text = lines[selection + 0:1]))
+  stopifnot(identical(flist, 'study_result_1/comp-result_12/data.txt'))
+})
+cat('Tomatoes selects finished sessions and finished main components.\n')
+
+local({
+  lines <- readLines('temporal_attention/temporal_attention.qmd')
+  data <- data.table(real_target_position = 1:3)
+  eval(parse(text = lines[grep('data[, post_cue :=', lines, fixed = TRUE)]))
+  stopifnot(is.factor(data$post_cue), identical(levels(data$post_cue), as.character(1:3)))
+  lines <- readLines('objects_states/objects_and_states.qmd')
+  response_distribution <- data.table(same_presented_statef = rep(c('same', 'different'), each = 3),
+    N = c(20, 20, 10, 5, 15, 30))
+  eval(parse(text = lines[grep('response_distribution[, prop :=', lines, fixed = TRUE)]))
+  stopifnot(all(response_distribution[, sum(prop), by = same_presented_statef]$V1 == 1))
+})
+cat('Temporal positions are categorical; object response proportions normalize within condition.\n')

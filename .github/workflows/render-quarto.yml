@@ -43,6 +43,8 @@ jobs:
         run: |
           Rscript -e 'status <- renv::status(); if (!status$synchronized) stop("R dependencies are out of sync with renv.lock.")'
           Rscript tests/report_filters.R
+          Rscript tests/imagery_metrics.R
+          python3 -m unittest discover -s tests -p 'test_study_audit.py'
       
       - name: Render Quarto Project
         id: render

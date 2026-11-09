@@ -1,0 +1,352 @@
+{
+  "generated_at_utc": "2026-11-04T09:34:35.119813+00:00",
+  "cutoff_utc": "2026-10-01",
+  "studies": [
+    {
+      "study": "Autumn imagery",
+      "study_id": 28788,
+      "all_finished": 40,
+      "all_with_gaps": 4,
+      "current_finished": 40,
+      "current_with_gaps": 4,
+      "export_sha256": "244cb7596f5828ac582811c71211415c75ce9dfe973ee682646d0d12a7336cec",
+      "export_downloaded_utc": "2026-11-04T09:19:58.949873+00:00",
+      "all_findings": {
+        "practice_responses_missing": {
+          "sessions": 4,
+          "events": 4
+        },
+        "questionnaire_items_missing": {
+          "sessions": 4,
+          "events": 4
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 3,
+          "events": 80
+        }
+      },
+      "all_measures": {
+        "questionnaire_items": 576,
+        "practice_responses": 740,
+        "missing_response_rts": 87,
+        "finite_response_rts": 16013,
+        "response_rows": 16100,
+        "memory_responses": 15360,
+        "afterimage_unsure": 1
+      },
+      "current_findings": {
+        "practice_responses_missing": {
+          "sessions": 4,
+          "events": 4
+        },
+        "questionnaire_items_missing": {
+          "sessions": 4,
+          "events": 4
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 3,
+          "events": 80
+        }
+      },
+      "current_measures": {
+        "questionnaire_items": 576,
+        "practice_responses": 740,
+        "missing_response_rts": 87,
+        "finite_response_rts": 16013,
+        "response_rows": 16100,
+        "memory_responses": 15360,
+        "afterimage_unsure": 1
+      }
+    },
+    {
+      "study": "Spring imagery",
+      "study_id": 23728,
+      "all_finished": 39,
+      "all_with_gaps": 1,
+      "current_finished": 0,
+      "current_with_gaps": 0,
+      "export_sha256": "1d512086df58bd709ade5278513da963665456b5b624d31467393bcfcde7f078",
+      "export_downloaded_utc": "2026-11-04T08:48:59.813634+00:00",
+      "all_findings": {
+        "practice_responses_missing": {
+          "sessions": 1,
+          "events": 1
+        },
+        "questionnaire_items_missing": {
+          "sessions": 1,
+          "events": 1
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 2,
+          "events": 54
+        }
+      },
+      "all_measures": {
+        "questionnaire_items": 608,
+        "practice_responses": 760,
+        "missing_response_rts": 307,
+        "finite_response_rts": 22917,
+        "response_rows": 23224,
+        "memory_responses": 22464
+      },
+      "current_findings": {},
+      "current_measures": {}
+    },
+    {
+      "study": "Temporal attention",
+      "study_id": 18331,
+      "all_finished": 137,
+      "all_with_gaps": 0,
+      "current_finished": 33,
+      "current_with_gaps": 0,
+      "export_sha256": "90afe555e8148ae8d17de4a0a33d18db06d49a2f0f8118559b94d4f694a99705",
+      "export_downloaded_utc": "2026-11-04T08:49:18.909814+00:00",
+      "all_findings": {
+        "practice_reaction_time_under_100ms_review": {
+          "sessions": 5,
+          "events": 7
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 20,
+          "events": 97
+        }
+      },
+      "all_measures": {
+        "practice_responses": 2100,
+        "finite_response_rts": 22621,
+        "response_rows": 22650,
+        "memory_responses": 20550,
+        "missing_response_rts": 29
+      },
+      "current_findings": {
+        "practice_reaction_time_under_100ms_review": {
+          "sessions": 1,
+          "events": 2
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 8,
+          "events": 29
+        }
+      },
+      "current_measures": {
+        "practice_responses": 525,
+        "finite_response_rts": 5473,
+        "response_rows": 5475,
+        "memory_responses": 4950,
+        "missing_response_rts": 2
+      }
+    },
+    {
+      "study": "Autumn decoy",
+      "study_id": 28940,
+      "all_finished": 38,
+      "all_with_gaps": 0,
+      "current_finished": 38,
+      "current_with_gaps": 0,
+      "export_sha256": "d9507fdc3478888346a47ea500ee8329d8cd79d219ab4b65f0a868957ecd5b7b",
+      "export_downloaded_utc": "2026-11-04T09:19:56.841853+00:00",
+      "all_findings": {
+        "reaction_time_under_100ms_review": {
+          "sessions": 8,
+          "events": 285
+        }
+      },
+      "all_measures": {
+        "main_trials": 9168,
+        "missing_response_rts": 26,
+        "finite_response_rts": 9142,
+        "response_rows": 9168,
+        "revised_protocol": 37
+      },
+      "current_findings": {
+        "reaction_time_under_100ms_review": {
+          "sessions": 8,
+          "events": 285
+        }
+      },
+      "current_measures": {
+        "main_trials": 9168,
+        "missing_response_rts": 26,
+        "finite_response_rts": 9142,
+        "response_rows": 9168,
+        "revised_protocol": 37
+      }
+    },
+    {
+      "study": "Spring decoy",
+      "study_id": 23570,
+      "all_finished": 40,
+      "all_with_gaps": 0,
+      "current_finished": 0,
+      "current_with_gaps": 0,
+      "export_sha256": "910d728ced8a5759064a935d6f9a019bcd1d34a16c45ad9ad904efa4de70b985",
+      "export_downloaded_utc": "2026-11-04T08:49:05.225707+00:00",
+      "all_findings": {
+        "reaction_time_under_100ms_review": {
+          "sessions": 10,
+          "events": 50
+        }
+      },
+      "all_measures": {
+        "main_trials": 11520,
+        "missing_response_rts": 46,
+        "finite_response_rts": 11474,
+        "response_rows": 11520
+      },
+      "current_findings": {},
+      "current_measures": {}
+    },
+    {
+      "study": "Tomatoes",
+      "study_id": 23544,
+      "all_finished": 78,
+      "all_with_gaps": 1,
+      "current_finished": 39,
+      "current_with_gaps": 0,
+      "export_sha256": "1ccfd527c7afa020254f22b2c923dba4e9190746205de789ffd79c9fcdd68d12",
+      "export_downloaded_utc": "2026-11-04T08:49:04.921703+00:00",
+      "all_findings": {
+        "practice_reaction_time_under_100ms_review": {
+          "sessions": 1,
+          "events": 4
+        },
+        "practice_responses_missing": {
+          "sessions": 1,
+          "events": 1
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 3,
+          "events": 132
+        }
+      },
+      "all_measures": {
+        "practice_responses": 770,
+        "missing_response_rts": 277,
+        "finite_response_rts": 22957,
+        "response_rows": 23234,
+        "memory_responses": 22464
+      },
+      "current_findings": {
+        "practice_reaction_time_under_100ms_review": {
+          "sessions": 1,
+          "events": 4
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 2,
+          "events": 130
+        }
+      },
+      "current_measures": {
+        "practice_responses": 390,
+        "missing_response_rts": 239,
+        "finite_response_rts": 11383,
+        "response_rows": 11622,
+        "memory_responses": 11232
+      }
+    },
+    {
+      "study": "Objects",
+      "study_id": 18335,
+      "all_finished": 165,
+      "all_with_gaps": 3,
+      "current_finished": 42,
+      "current_with_gaps": 0,
+      "export_sha256": "cfc35874b73396388799dc5182405bfd6b48850dee91d2f33d7375f2aea0a67c",
+      "export_downloaded_utc": "2026-11-04T08:49:13.801745+00:00",
+      "all_findings": {
+        "objects_learning_item_metadata_missing": {
+          "sessions": 2,
+          "events": 2
+        },
+        "objects_learning_or_test_trials_missing": {
+          "sessions": 1,
+          "events": 1
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 2,
+          "events": 2
+        }
+      },
+      "all_measures": {
+        "learning_trials": 32800,
+        "test_trials": 16400,
+        "response_rows": 16400
+      },
+      "current_findings": {
+        "reaction_time_under_100ms_review": {
+          "sessions": 1,
+          "events": 1
+        }
+      },
+      "current_measures": {
+        "learning_trials": 8400,
+        "test_trials": 4200,
+        "response_rows": 4200
+      }
+    },
+    {
+      "study": "Monsters",
+      "study_id": 18334,
+      "all_finished": 178,
+      "all_with_gaps": 5,
+      "current_finished": 39,
+      "current_with_gaps": 1,
+      "export_sha256": "474808c6364a5bb9b0e1fdf199c125b94f8bd59448a14448303bb1a7e4a1d699",
+      "export_downloaded_utc": "2026-11-04T08:49:28.957924+00:00",
+      "all_findings": {
+        "legacy_monsters_timeout_without_correctness": {
+          "sessions": 15,
+          "events": 636
+        },
+        "monsters_main_trials_missing": {
+          "sessions": 5,
+          "events": 5
+        },
+        "no_correct_monsters_responses_review": {
+          "sessions": 1,
+          "events": 1
+        },
+        "reaction_time_invalid": {
+          "sessions": 1,
+          "events": 1
+        },
+        "reaction_time_over_nominal_deadline_review": {
+          "sessions": 1,
+          "events": 2
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 6,
+          "events": 6
+        }
+      },
+      "all_measures": {
+        "main_trials": 125280,
+        "finite_response_rts": 124631,
+        "response_rows": 125280,
+        "missing_response_rts": 649,
+        "practice_rows": 201
+      },
+      "current_findings": {
+        "monsters_main_trials_missing": {
+          "sessions": 1,
+          "events": 1
+        },
+        "reaction_time_invalid": {
+          "sessions": 1,
+          "events": 1
+        },
+        "reaction_time_under_100ms_review": {
+          "sessions": 2,
+          "events": 2
+        }
+      },
+      "current_measures": {
+        "main_trials": 32832,
+        "finite_response_rts": 32828,
+        "response_rows": 32832,
+        "practice_rows": 60,
+        "missing_response_rts": 4
+      }
+    }
+  ]
+}

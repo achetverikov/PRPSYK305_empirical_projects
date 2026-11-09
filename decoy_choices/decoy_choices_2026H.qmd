@@ -90,11 +90,7 @@ scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22
 ```{r}
 #| label: data_prep
 
-headers = c(
-  `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
-)
 
-jatos_url <- 'https://jatos.mindprobe.eu/jatos/api/v1/'
 
 randstring <- function(n = 5000) {
   a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
@@ -108,21 +104,8 @@ study_version <- 'H26-shopping-240-v1'
 temp_dir <- tempdir(check = T)
 temp_dir <- gsub('\\\\', '/', temp_dir)
 temp_dir <- paste(temp_dir, randstring(1), sep = '/')
-res_file <- paste0(tempfile(),'.zip')
 
-url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
-if (!nzchar(Sys.getenv('JATOS_TOKEN')) || !nzchar(study_uid)) {
-  stop('Load the teaching project token and H26 study configuration before rendering.')
-}
-download <- GET(url, add_headers(.headers = headers), write_disk(res_file), handle = handle(''))
-stop_for_status(download)
-unzip(res_file, exdir=temp_dir)  # unzip your file
-
-export_metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))
-if (!NROW(export_metadata$data) || !NROW(export_metadata$data$studyResults[[1]])) {
-  stop('No study results are available for this report.')
-}
-metadata <- export_metadata$data$studyResults[[1]]
+metadata <- read_jatos_export(study_uid, temp_dir)
 
 finished_study_ids <- metadata[metadata$studyState == 'FINISHED', c('id', 'endDate', 'startDate')]
 setDT(finished_study_ids)

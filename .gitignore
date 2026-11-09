@@ -64,3 +64,6 @@ tomatoes_study_averaging_only/
 /studies_inventory.md
 colors_and_imagery/colors_and_imagery.R
 .codex
+
+# Python audit caches
+__pycache__/

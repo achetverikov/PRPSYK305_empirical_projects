@@ -97,13 +97,7 @@ scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22
 ```{r}
 #| label: data-download
 #| eval: !expr rebuild_data
-headers = c(
-  `Authorization` = sprintf("Bearer %s",Sys.getenv('JATOS_TOKEN')),
-  `Content-Type` = 'text/plain'
-)
 
-jatos_url <- 'https://jatos.mindprobe.eu/jatos/api/v1/'
-res <- httr::GET(url = paste0(jatos_url, "admin/token"), httr::add_headers(.headers=headers))
 
 randstring <- function(n = 5000) {
   a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
@@ -113,24 +107,12 @@ randstring <- function(n = 5000) {
 temp_dir <- tempdir(check = T)
 temp_dir <- gsub('\\\\', '/', temp_dir)
 temp_dir <- paste(temp_dir, randstring(1), sep = '/')
-res_file <- paste0(tempfile(),'.zip')
 
 study_uid <- Sys.getenv('JATOS_TOMATO_STUDY_2026_UID')
 
-req_url <-  sprintf("%sresults/metadata?studyUuid=%s", jatos_url, study_uid)
-system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
+metadata <- read_jatos_export(study_uid, temp_dir)
 
-metadata_global <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
-setDT(metadata_global)
-unlink(paste0(temp_dir, "/*"))
-finished_study <- metadata_global[studyState=='FINISHED',c('id','startDate','endDate','duration')]
-url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
-system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
-unzip(res_file, exdir=temp_dir)  # unzip your file
-
-metadata <- fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
-
-finished_study_ids <- metadata[,c('id', "endDate", "startDate")]
+finished_study_ids <- metadata[metadata$studyState == 'FINISHED', c('id', "endDate", "startDate")]
 setDT(finished_study_ids)
 finished_study_ids[,id:=as.character(id)]
 finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
@@ -143,6 +125,9 @@ comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
 }), fill = T)
 flist <- list.files(temp_dir, '*.txt', full.names = T, recursive = T)
 flist <- flist[str_extract(flist,'study_result_(\\d+)', group = 1)%in%finished_study_ids$id]
+# The main component contains its own browser check; practice is a separate component.
+flist <- flist[str_extract(flist, 'comp-result_(\\d+)', group = 1) %in%
+  comp_res_meta[componentId == 39795 & componentState == 'FINISHED', id]]
 
 cur_data <- rbindlist(lapply(c(flist), \(x){
   print(x)
@@ -355,6 +340,7 @@ tomatoes <- drop_empty_cols(tomatoes)
 tomatoes[,c('startDate','endDate','result_id','subject_id','avg_frame_time'):=NULL]
 
 tomatoes_out <- tomatoes[order(subject, trial_number),.(subject, trial_number, low_var_color = item_low_var_color, high_var_color = item_high_var_color, left_color = left_sample_mean, right_color = right_sample_mean, left_sd,  right_sd, variability_condition, variability_condition_ab, item_a_is_left, item_a_color, item_b_color, similarity_bin, resp_color,  error_to_sample_mean = error, base_color , error_to_pop_mean, errorCorrected = be_c, bias_rel_to_item_a, is_outlier)]
+attr(tomatoes, 'n_finished_sessions') <- nrow(finished_study_ids)
 saveRDS(tomatoes, file = 'tomatoes_preprocessed_2026.rds')
 fwrite(tomatoes_out, file = 'tomatoes_2026.csv')
 fwrite(aggr_stats, file = 'tomatoes_aggr_stats.csv')
@@ -395,7 +381,7 @@ tomatoes <- readRDS('tomatoes_preprocessed_2026.rds')
 # Methods
 
 ## Participants
-`r str_to_sentence(xfun::numbers_to_words(aggr_stats[,.N]))` participants took part in the study. `r str_to_sentence(xfun::numbers_to_words(aggr_stats[,.N]-tomatoes[,lengthu(subject)]))` participants were excluded because of very poor performance (an average absolute error was above the predefined threshold of 60 deg.).
+`r str_to_sentence(xfun::numbers_to_words(attr(tomatoes, 'n_finished_sessions')))` finished sessions were recorded after the cohort cutoff. `r str_to_sentence(xfun::numbers_to_words(attr(tomatoes, 'n_finished_sessions') - tomatoes[,lengthu(subject)]))` were excluded under the existing memory-quality rules (more than 250 nonmissing responses initially, then circular SD of errors no greater than 60 deg. and at least 200 retained report rows). The analyses include `r tomatoes[,lengthu(subject)]` participants.
 
 {{< include tomatoes_experience_methods_V26.md >}}
 
@@ -487,10 +473,10 @@ bias_ttests <- subject_bias[, .(apa = apa(t.test(bias_rel_to_high_var_raw, mu = 
 
 We calculated a bias measure to determine whether participants' reports were systematically pulled toward the higher-variability item. For this analysis, we included only unequal-variance trials and coded the signed error so that positive values indicate responses shifted toward the higher-variability item.
 
-The one-way repeated-measures ANOVA showed no effect of similarity bin, `r apa(bias_anova, "similarity_bin")`. One-sample t-tests showed a significant positive bias only at 20 deg. similarity (`r mean_bias[similarity_bin == 20, descr]`, `r bias_ttests[similarity_bin == 20, apa]`). The corresponding tests were not significant at 45 deg. (`r mean_bias[similarity_bin == 45, descr]`, `r bias_ttests[similarity_bin == 45, apa]`) or at 135 deg. (`r mean_bias[similarity_bin == 135, descr]`, `r bias_ttests[similarity_bin == 135, apa]`).
+The one-way repeated-measures ANOVA tested the effect of similarity bin: `r apa(bias_anova, "similarity_bin")`. One-sample t-tests against zero gave `r bias_ttests[similarity_bin == 20, apa]` at 20 deg. similarity (`r mean_bias[similarity_bin == 20, descr]`), `r bias_ttests[similarity_bin == 45, apa]` at 45 deg. (`r mean_bias[similarity_bin == 45, descr]`), and `r bias_ttests[similarity_bin == 135, apa]` at 135 deg. (`r mean_bias[similarity_bin == 135, descr]`). These three p-values are unadjusted for multiple comparisons.
 
 ```{r}
-#| fig-cap: "Individual differences in mean absolute error and mean bias toward the higher-variability item. Each point is one observer; bias is averaged across unequal-variance trials. The line shows the least-squares fit."
+#| fig-cap: "Individual differences in mean absolute error and mean bias toward the higher-variability item. Each point is one observer; bias is averaged across unequal-variance trials. The line shows a robust regression fit."
 #| label: fig-bias-accuracy-individual-differences
 
 subject_bias_overall <- uneq_bias[, .(mean_bias = mean(bias_rel_to_high_var_raw, na.rm = TRUE)), by = subject]
@@ -508,5 +494,5 @@ ggplot(individual_differences, aes(x = mean_abs_err, y = mean_bias)) +
   )
 ```
 
-At the individual-differences level, observers with larger mean absolute error tended to show less positive bias toward the higher-variability item, `r apa(indiv_diff_cor)`. So in these data, less accurate observers were less biased toward the higher-variability item.
+At the individual-differences level, the Pearson correlation between mean absolute error and mean bias toward the higher-variability item was `r apa(indiv_diff_cor)`.
 

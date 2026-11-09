@@ -84,11 +84,7 @@ scale_fill_discrete <- function(...) scale_fill_manual(values=default_colors, ..
 scale_shape_discrete <- function(...) scale_shape_manual(values = c(16,21,17, 22), ...)
 
 
-headers = c(
-  `Authorization` = sprintf("Bearer %s", Sys.getenv("JATOS_TOKEN"))
-)
 
-jatos_url <- 'https://jatos.mindprobe.eu/jatos/api/v1/'
 
 randstring <- function(n = 5000) {
   a <- do.call(paste0, replicate(5, sample(LETTERS, n, TRUE), FALSE))
@@ -101,31 +97,17 @@ study_uid <- Sys.getenv('JATOS_OBJ_STUDY_UID')
 temp_dir <- tempdir(check = T)
 temp_dir <- gsub('\\\\', '/', temp_dir)
 temp_dir <- paste(temp_dir, randstring(1), sep = '/')
-res_file <- paste0(tempfile(),'.zip')
 
-req_url <-  sprintf("%sresults/metadata?studyUuid=%s", jatos_url, study_uid)
-system(sprintf('curl  -H "Authorization: %s" %s --output "%s" ', headers[['Authorization']], req_url, res_file))
+metadata <- read_jatos_export(study_uid, temp_dir)
 
-metadata <- jsonlite::fromJSON(res_file)$data$studyResults[[1]]
-setDT(metadata)
-unlink(paste0(temp_dir, "/*"))
-finished_study <- metadata[studyState=='FINISHED',c('id','startDate','endDate','duration')]
-finished_study[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
-finished_study[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
-finished_study <- finished_study[id%nin%c('771212','771225')] # beta version of the study
-
-url <-  sprintf("%sresults?studyUuid=%s", jatos_url, study_uid)
-system(sprintf('curl -i -H "Authorization: %s" %s --output "%s"', headers[['Authorization']], url, res_file))
-unzip(res_file, exdir=temp_dir)  # unzip your file
-
-metadata <- jsonlite::fromJSON(list.files(temp_dir, '*.json', full.names = T, recursive = T))$data$studyResults[[1]]
-
-finished_study_ids <- metadata[,c('id', "endDate", "startDate")]
+finished_study_ids <- metadata[metadata$studyState == 'FINISHED', c('id', "endDate", "startDate")]
 setDT(finished_study_ids)
 finished_study_ids[,id:=as.character(id)]
 finished_study_ids[,endDate:=as.POSIXct(endDate/1000, origin="1970-01-01")]
 finished_study_ids[,startDate:=as.POSIXct(startDate/1000, origin="1970-01-01")]
 finished_study_ids <- filter_jatos_start_date(finished_study_ids)
+finished_study_ids <- finished_study_ids[!id %in% c('771212', '771225')] # legacy beta sessions
+finished_study <- copy(finished_study_ids)
 
 comp_res_meta <- rbindlist(lapply(1:length(metadata$componentResults), \(x) {
   dt <- as.data.table(metadata$componentResults[[x]])
@@ -407,7 +389,7 @@ ggplot(binding_accuracy, aes(x = factor(same_presented_state, labels = c("Differ
        y = "Proportion correct") 
 ```
 
-The key question is whether participants bind state information to exemplars. Performance was significantly better than the chance level both when exemplars were studied in the same state (`r f_round(binding_accuracy[same_presented_state == TRUE, mean_accuracy])`, `r apa(t_test_same_vs_chance)` and when they were studied in different states (`r f_round(binding_accuracy[same_presented_state == FALSE, mean_accuracy])`, `r apa(t_test_diff_vs_chance)`) with a small but significant difference between the two (`r apa(t_test_binding)`).
+The key question is whether participants bind state information to exemplars. Performance was significantly better than the chance level both when exemplars were studied in the same state (`r f_round(binding_accuracy[same_presented_state == TRUE, mean_accuracy])`, `r apa(t_test_same_vs_chance)`) and when they were studied in different states (`r f_round(binding_accuracy[same_presented_state == FALSE, mean_accuracy])`, `r apa(t_test_diff_vs_chance)`) with a small but significant difference between the two (`r apa(t_test_binding)`).
 
 ```{r}
 #| label: fig-response-distribution
@@ -417,7 +399,7 @@ The key question is whether participants bind state information to exemplars. Pe
 response_distribution <- trials_grouped[, .(
    .N 
 ), by = .(same_presented_statef, response_type)]
-response_distribution[,prop:=N/sum(N)]
+response_distribution[, prop := N / sum(N), by = same_presented_statef]
 # Plot the distribution of responses
 ggplot(response_distribution, 
        aes(x = response_type,

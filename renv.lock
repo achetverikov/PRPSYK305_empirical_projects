@@ -32,6 +32,11 @@
       ],
       "Hash": "a2fceb52bfbc3be9df984e98755f9ae1"
     },
+    "GGally": {
+      "Package": "GGally",
+      "Version": "2.4.0",
+      "Source": "Repository"
+    },
     "Hmisc": {
       "Package": "Hmisc",
       "Version": "5.3-0",
@@ -492,6 +497,11 @@
       ],
       "Hash": "20ecb9105a3fb48a8390919abc3b7e90"
     },
+    "crayon": {
+      "Package": "crayon",
+      "Version": "1.5.3",
+      "Source": "Repository"
+    },
     "curl": {
       "Package": "curl",
       "Version": "8.0.0",
@@ -658,6 +668,11 @@
       ],
       "Hash": "bd1297f9b5b1fc1372d19e2c4cd82215"
     },
+    "forcats": {
+      "Package": "forcats",
+      "Version": "1.0.1",
+      "Source": "Repository"
+    },
     "forecast": {
       "Package": "forecast",
       "Version": "9.0.2",
@@ -798,6 +813,11 @@
       ],
       "Hash": "98520fe6b2745c466dca8e46aaa86242"
     },
+    "ggstats": {
+      "Package": "ggstats",
+      "Version": "0.13.0",
+      "Source": "Repository"
+    },
     "glue": {
       "Package": "glue",
       "Version": "1.8.1",
@@ -849,6 +869,11 @@
         "xfun"
       ],
       "Hash": "2a2f862ade01a56dcbcd60944de11255"
+    },
+    "hms": {
+      "Package": "hms",
+      "Version": "1.1.4",
+      "Source": "Repository"
     },
     "htmlTable": {
       "Package": "htmlTable",
@@ -1325,6 +1350,16 @@
         "Rcpp"
       ],
       "Hash": "6b8177fd19982f0020743fadbfdbd933"
+    },
+    "prettyunits": {
+      "Package": "prettyunits",
+      "Version": "1.2.0",
+      "Source": "Repository"
+    },
+    "progress": {
+      "Package": "progress",
+      "Version": "1.2.3",
+      "Source": "Repository"
     },
     "promises": {
       "Package": "promises",
