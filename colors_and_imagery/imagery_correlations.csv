@@ -1,4 +1,4 @@
 comparison,method,n,estimate,p
 VVIQ – imagery/afterimage,spearman,40,0.329568052959342,0.0378301075915173
-VVIQ – memory MAE,pearson,38,0.15901646008781,0.340294097517227
-Imagery/afterimage – memory MAE,spearman,40,0.0706108230987596,0.665042311611395
+VVIQ – memory MAE,pearson,38,0.162870811733704,0.328565007836244
+Imagery/afterimage – memory MAE,spearman,40,0.0691658540039692,0.671507127905398
