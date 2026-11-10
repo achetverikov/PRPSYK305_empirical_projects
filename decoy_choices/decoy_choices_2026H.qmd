@@ -255,6 +255,81 @@ The effects of decoy placement and condition were then analyzed using a within-s
 * the effect of their interaction `r apa(res, 'condition:decoy_on')`
 
 
+### Does moving the decoy change target choice?
+
+The ANOVA above tests differences across all three choice sets. To isolate decoy placement, we compared target choice when the decoy was attached to the target versus the competitor, separately for numeric and perceptual presentation. We also directly compared these two placement effects between presentation formats.
+
+```{r}
+#| label: decoy-placement-tests
+target_choices <- dcast(choice_props[chosen_item == 'target'], participant + condition ~ decoy_on,
+  value.var = 'prop_choices')
+placement_changes <- target_choices[, .(participant, condition, change = target - competitor)]
+placement_wide <- dcast(placement_changes, participant ~ condition, value.var = 'change')
+placement_tests <- rbind(
+  placement_changes[, .(participant, comparison = paste('Target minus competitor:', condition), change)],
+  placement_wide[, .(participant, comparison = 'Placement effect: numeric minus perceptual',
+    change = numeric - perceptual)])[, {
+      test <- t.test(change)
+      .(n = .N, mean_change = mean(change), summary = apa_mean_conf(change),
+        statistics = apa(test), p = test$p.value)
+    }, by = comparison]
+placement_tests[, p_holm := p.adjust(p, method = 'holm')]
+```
+
+```{r}
+#| results: asis
+knitr::kable(placement_tests[, .(Comparison = comparison, N = n,
+  `Difference (percentage points; 95% CI)` = summary, Test = statistics,
+  `Holm-adjusted p` = vapply(p_holm, round_p, character(1), include.rel = FALSE))])
+```
+
+Moving the decoy from the competitor to the target changed target choice by `r placement_tests[comparison == 'Target minus competitor: numeric', summary]` percentage points with numeric presentation and `r placement_tests[comparison == 'Target minus competitor: perceptual', summary]` points with perceptual presentation. A positive change means that target-attached decoys increased target choice relative to competitor-attached decoys. The last row directly tests whether this placement effect differs between presentation formats. Holm adjustment covers these three comparisons.
+
+### Do decoys shift the balance between target and competitor?
+
+Adding a third option can reduce raw target choice because participants sometimes choose the decoy. We therefore also calculated the target's relative choice share: target choices divided by target-plus-competitor choices, excluding decoy choices from the denominator. This follows the measure used by Spektor et al. (2022). We compared each placement with the observed no-decoy baseline within the same presentation format. The baseline is not assumed to be 50%, because the target was the better option in this task.
+
+```{r}
+#| label: decoy-relative-share-tests
+relative_choices <- choice_props[chosen_item != 'decoy',
+  .(relative_share = 100 * sum(n[chosen_item == 'target']) / sum(n)),
+  by = .(participant, condition, decoy_on)]
+stopifnot(all(is.finite(relative_choices$relative_share)))
+relative_wide <- dcast(relative_choices, participant + condition ~ decoy_on,
+  value.var = 'relative_share')
+control_changes <- melt(relative_wide[, .(participant, condition,
+  target = target - no_decoy, competitor = competitor - no_decoy)],
+  id.vars = c('participant', 'condition'), variable.name = 'placement', value.name = 'change')
+control_tests <- control_changes[, {
+  test <- t.test(change)
+  .(n = .N, mean_change = mean(change), summary = apa_mean_conf(change),
+    statistics = apa(test), p = test$p.value)
+}, by = .(condition, placement)]
+control_tests[, p_holm := p.adjust(p, method = 'holm')]
+```
+
+```{r}
+#| label: fig-relative-choice
+#| fig-cap: "Target choice among target-plus-competitor responses, excluding choices of the decoy. The no-decoy condition provides a separate baseline for each presentation format. Error bars show 95% confidence intervals corrected for within-subject comparisons."
+
+plot_pointrange(relative_choices, aes(x = condition, y = relative_share, color = decoy_on),
+  wid = 'participant', within_subj = TRUE, withinvars = c('condition', 'decoy_on')) +
+  scale_color_manual(values = decoy_colors, breaks = names(decoy_colors),
+    labels = c('Competitor', 'Target', 'No decoy')) +
+  labs(x = 'Presentation', y = 'Target choices among target + competitor (%)', color = 'Choice set')
+```
+
+```{r}
+#| results: asis
+knitr::kable(control_tests[, .(Presentation = condition, `Decoy attached to` = placement, N = n,
+  `Relative share minus control (percentage points; 95% CI)` = summary, Test = statistics,
+  `Holm-adjusted p` = vapply(p_holm, round_p, character(1), include.rel = FALSE))])
+```
+
+Positive differences mean that the decoy shifted the target-versus-competitor balance toward the target; negative differences mean a shift toward the competitor. These four paired control comparisons have a separate Holm adjustment. For a target-attached decoy, a positive difference is consistent with attraction to the target and a negative difference with repulsion; the corresponding interpretation reverses for a competitor-attached decoy. The plot and table distinguish these shifts from the simple diversion of responses to the third option.
+
+After adjustment, only the competitor-attached decoy in the numeric condition clearly differed from its no-decoy baseline: it shifted the target-versus-competitor balance toward the competitor. Neither target-attached comparison nor the competitor-attached perceptual comparison provided clear evidence of a shift from control. Thus, the opposite placement effects above do not by themselves establish attraction or repulsion relative to the control in both presentation formats.
+
 ```{r}
 #| fig-cap: The effects of decoy placement and condition on the observers' response times.
 #| label: fig-rt
@@ -269,3 +344,8 @@ Lastly, we analyzed the response times again using a within-subject ANOVA (@fig-
 * the effect of condition `r apa(res_rt, 'condition')`
 * the effect of decoy placement `r apa(res_rt, 'decoy_on')`
 * the effect of their interaction `r apa(res_rt, 'condition:decoy_on')`
+
+
+## Reference
+
+Spektor, M. S., Kellen, D., & Klauer, K. C. (2022). The repulsion effect in preferential choice and its relation to perceptual choice. *Cognition, 225*, 105164. https://doi.org/10.1016/j.cognition.2022.105164

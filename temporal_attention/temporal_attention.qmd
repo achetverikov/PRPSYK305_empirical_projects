@@ -283,31 +283,45 @@ The effects of initial cue position and post-cue position were analyzed using a 
 
 To examine whether performance drops more when people have to report the item at the position after the one that is cued (i.e., if there is a 'refractory' period for attention), we selected the trials where participants reported the target at position 2 and the pre-cue pointed to the 1st or the 3rd position. No difference was found for reports at the 2nd position between the two conditions (`r ttest_descr`). 
 
+### Benefits and costs of temporal cueing
+
+We compared each participant's mean absolute error under valid, neutral and invalid cues for each reported target. The benefit is neutral minus valid error: a positive value means that a valid cue improved accuracy. The cost is invalid minus neutral error: a positive value means that an invalid cue worsened accuracy. Both quantities are expressed in degrees, without dividing by the valid–invalid difference.
+
 ```{r}
-#| label: fig-benefit
-#| fig-cap: "Cost and Benefit Indices for Temporal Attention"
-costs_benefits <- dcast(data[,.(perf = mean_nn(abs_err)), by = .(participant, cue_type, post_cue)], participant+post_cue~cue_type)
-costs_benefits[, cost_index := -(neutral-invalid)/(valid-invalid)]
-costs_benefits[, benefit_index := -(valid-neutral)/(valid-invalid)]
-costs_benefits[post_cue==2,t.test(neutral,invalid, paired  = T)]
-
-costs_benefits <- melt(costs_benefits, id.vars = c('participant', 'post_cue'), measure.vars = c('cost_index', 'benefit_index')) 
-costs_benefits[post_cue==1]
-costs_benefits[,index_type := ifelse(variable=='cost_index', 'cost', 'benefit')]
-cb_tt <- costs_benefits[,.(V1 = apa(t.test(value))), by = .(variable, post_cue)]
-plot_pointrange(costs_benefits, aes(x = post_cue, y = value, color = index_type), 
-                  within_subj = TRUE,
-                  design = 'w',
-                  wid = "participant",
-                  custom_geom_before = list(gg_crosshair(yint = 0)),
-                  pointsize = 3,
-                  linesize = 1) + labs(
-                    x = "Reported target", color = "Index Type",
-                    y = "Cost/Benefit Index"
-                  )
-
-
+#| label: temporal-cost-benefit-tests
+cue_accuracy <- dcast(data[, .(mae = mean(abs_err)),
+  by = .(participant, cue_type, post_cue)], participant + post_cue ~ cue_type,
+  value.var = 'mae')
+costs_benefits <- melt(cue_accuracy[, .(participant, post_cue,
+  benefit = neutral - valid, cost = invalid - neutral)],
+  id.vars = c('participant', 'post_cue'), variable.name = 'effect', value.name = 'change')
+cb_tests <- costs_benefits[, {
+  test <- t.test(change)
+  .(n = .N, mean_change = mean(change), summary = apa_mean_conf(change),
+    statistics = apa(test), p = test$p.value)
+}, by = .(post_cue, effect)]
+cb_tests[, p_holm := p.adjust(p, method = 'holm')]
 ```
 
-Finally, we repeated the cost-benefit analysis introduced by Denison et al. (2017) (@fig-benefit). For targets 1 and 3, the cost-index tests were `r cb_tt[variable=='cost_index'&post_cue%in%c(1,3), paste_and(V1)]`, respectively, and the benefit-index tests were `r cb_tt[variable=='benefit_index'&post_cue%in%c(1,3), paste_and(V1)]`, respectively. For target 2, the cost-index test was `r cb_tt[variable=='cost_index'&post_cue==2, V1]` and the benefit-index test was `r cb_tt[variable=='benefit_index'&post_cue==2, V1]`.
+```{r}
+#| label: fig-benefit
+#| fig-cap: "Benefits and costs of temporal cueing in degrees of absolute error. Positive benefits indicate lower error with valid than neutral cues; positive costs indicate higher error with invalid than neutral cues. Error bars show 95% confidence intervals across participants."
 
+plot_pointrange(costs_benefits, aes(x = post_cue, y = change, color = effect),
+  wid = 'participant', within_subj = FALSE, withinvars = c('post_cue', 'effect')) +
+  geom_hline(yintercept = 0, linetype = 2, colour = 'grey60') +
+  labs(x = 'Reported target', y = 'Change in absolute error (degrees)', color = 'Cueing effect')
+```
+
+The tests below are paired cue-condition comparisons, expressed as one-sample tests of each participant's difference from zero. Holm's method adjusts the p-values across all six benefit/cost comparisons.
+
+```{r}
+#| results: asis
+knitr::kable(cb_tests[, .(Target = post_cue, Effect = effect, N = n,
+  `Mean difference (degrees; 95% CI)` = summary, Test = statistics,
+  `Holm-adjusted p` = vapply(p_holm, round_p, character(1), include.rel = FALSE))])
+```
+
+After adjustment, valid cues improved accuracy for targets `r paste(as.character(cb_tests[effect == 'benefit' & p_holm < .05, post_cue]), collapse = ', ')`, whereas invalid cues worsened accuracy for target `r paste(as.character(cb_tests[effect == 'cost' & p_holm < .05, post_cue]), collapse = ', ')`. The other comparisons did not provide clear evidence of benefits or costs. The intervals in @fig-benefit show the uncertainty around each effect.
+
+These comparisons address the benefit/cost question in Denison et al. (2017), using differences in MAE. Their normalized indices were calculated from group means to summarize the balance of benefits and costs; their significance tests also compared cue conditions within participants. The present analysis uses differences in degrees because participant-level ratios become unstable when valid and invalid errors are similar. Invalid trials remain pooled across the two possible incorrect precues here.
