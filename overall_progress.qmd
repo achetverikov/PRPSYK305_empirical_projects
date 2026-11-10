@@ -196,7 +196,7 @@ progress_plot <- ggplot(title_code_matching, aes(y = reorder(short_title, N))) +
   theme(plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5),
         axis.ticks.y = element_blank()) +
-  coord_cartesian(xlim = c(0, total_participants)) # Add more space for the labels on right side
+  coord_cartesian(xlim = c(0, total_participants * 1.25)) # Add more space for the labels on right side
 
 # Display the plot
 progress_plot

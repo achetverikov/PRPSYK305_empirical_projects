@@ -30,13 +30,13 @@ The experiment used a factorial design with 10 repetitions of each condition, re
 ### Procedure
 The experiment began with an instruction screen explaining the task, followed by a browser check to ensure minimum screen requirements were met.
 
-Prior to the main experiment, participants completed 15 training trials with gradually decreasing stimulus durations to familiarize themselves with the task.
+Prior to the main experiment, participants completed practice in blocks of 15 trials with gradually decreasing stimulus durations. After each practice block, they could continue to the main task or complete another practice block.
 
-Each trial began with a fixation cross presented at the center of the screen. After 250 ms, participants heard an auditory cue and simultaneously saw a visual text cue ("1", "2", "3", or "all") indicating which of the upcoming visual patterns would be most important (a 'pre-cue'). The high-pitched tone indicated the first pattern, the mid-pitched tone indicated the second pattern, and the low-pitched tone indicated the third pattern. A mixed tone indicated that all patterns were equally important.
+Each trial began with a fixation cross presented at the center of the screen. After 250 ms, participants heard an auditory cue and simultaneously saw a visual text cue ("1", "2", "3", or "all") indicating which of the upcoming visual patterns would be most important (a 'pre-cue'). The low-pitched tone (330 Hz) indicated the first pattern, the mid-pitched tone (784 Hz) indicated the second pattern, and the high-pitched tone (1318 Hz) indicated the third pattern. A mixed tone indicated that all patterns were equally important.
 
-Following the cue, three Gabor patches were presented sequentially at the same location, with each patch displayed for 50 ms (during training, this duration started at 400 ms and gradually decreased) and separated by a 250 ms inter-stimulus interval. After all three patterns were presented and a delay of 500 ms, participants heard a second auditory cue (and saw the corresponding visual cue) that indicated which pattern's orientation they needed to report (a 'post-cue').
+Following the cue, three Gabor patches were presented sequentially at the same location, with each patch displayed for 50 ms (during each 15-trial practice block, duration decreased from approximately 937 ms to 50 ms) and separated by a 500 ms inter-stimulus interval. After all three patterns were presented and a delay of 500 ms, participants heard a second auditory cue (and saw the corresponding visual cue) that indicated which pattern's orientation they needed to report (a 'post-cue').
 
 Participants then used the mouse to adjust the orientation of a response line to match the orientation of the cued Gabor patch. After submitting their response by clicking, participants received feedback in the form of a score based on their accuracy. The score calculation rewarded precise orientation matching, with higher scores for smaller errors and penalties for large errors.
 
-The experiment was divided into two blocks: a training block with 15 trials and a main block with 150 trials. Participants could take breaks between blocks and were provided with feedback about their overall performance.
+The experiment consisted of one or more 15-trial practice blocks followed by a main block with 150 trials. Participants could take breaks between blocks and were provided with feedback about their overall performance.
 

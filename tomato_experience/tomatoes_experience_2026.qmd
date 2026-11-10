@@ -350,7 +350,7 @@ fwrite(aggr_stats, file = 'tomatoes_aggr_stats.csv')
 
 Read the report below and use it as a basis for your presentation. You can also download the preprocessed data from `tomatoes_2026.csv` and use your favorite software (JASP, jamovi, R, SPSS) to analyze it to get more insight into the study results. The data file has the following columns:
 
-* `subject` - participant identifier (ordinal factor with 34 levels)
+* `subject` - participant identifier
 * `trial_number` - trial number within the experiment
 * `low_var_color` - the color value of the low-variability item in degrees
 * `high_var_color` - the color value of the high-variability item in degrees

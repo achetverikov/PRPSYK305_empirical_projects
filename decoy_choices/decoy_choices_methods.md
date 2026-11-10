@@ -37,6 +37,6 @@ Which attribute (price or quality) was represented by which color (red or blue) 
 ## Procedure
 The experiment began with an instruction screen explaining the task and showing example stimuli. Participants were instructed to select the best option in terms of both price and quality, with fuller bars indicating better values (higher quality and lower price).
 
-On each trial, three options were presented simultaneously. Participants indicated their choice by pressing the corresponding number key (1, 2, or 3). They had a maximum of 20 seconds to respond. If no response was recorded within the time limit, a "Too late!" message appeared encouraging faster responses.
+On each trial, three options were presented simultaneously. Participants indicated their choice by pressing the corresponding number key (1, 2, or 3). The trial limit was 20 seconds from trial onset, with the options appearing after 1 second, leaving approximately 19 seconds of visible decision time. An unanswered trial advanced directly to the next scheduled trial or break.
 
 The experiment was divided into blocks of 16 trials, with short breaks between blocks. During these breaks, participants received feedback on their performance, visualized as TVs they had "taken home" (correct choices) versus "missed" (incorrect choices). After completing all trials, a final performance summary was displayed before concluding the experiment.

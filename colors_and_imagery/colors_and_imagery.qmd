@@ -256,7 +256,7 @@ data_color<-data_color[participant%nin%data_color[,.(.N, circ_sd_360(error, na.r
 
 data_color[,.(.N, circ_sd_360(error, na.rm = T)), by = participant]
 db_res <- lapply(split(data_color[!is.na(error),], by = c('participant', 'cue_n')), \(dt){
-  dt[,c('be_c','is_outlier'):=remove_cardinal_biases_discrete(error, similarity_bin, space = 360)[,c('be_c','is_outlier')], by = .(participant, cue_n)]
+  dt[,c('be_c','is_outlier'):=remove_cardinal_biases(error, target_color, space = '360', plots = 'hide')[,c('be_c','is_outlier')], by = .(participant, cue_n)]
   dt
 })
 
@@ -318,69 +318,17 @@ Read the report and use it as a basis for your presentation. You can also downlo
 
 # Results
 
-## Vividness of Visual Imagery Questionnaire
-
-```{r}
-#| label: fig-vviq
-#| fig-cap: "Distribution of Visual Vividness Imagery Questionnaire (VVIQ) scores across participants. Higher scores indicate more vivid self-reported visual imagery."
-#| fig-asp: 0.25
-
-ggplot(data_vviq, aes(x = vviq)) +
-  geom_dotplot(binwidth = 1) +
-  coord_cartesian(xlim = c(0,64)) +
-  labs(x = 'VVIQ score', y = 'Count') +
-  theme(axis.title.y = element_blank(), 
-        axis.text.y = element_blank(), 
-        axis.ticks.y = element_blank())
-```
-
-The VVIQ scores were between `r min(data_vviq$vviq, na.rm = TRUE)` and `r max(data_vviq$vviq, na.rm = TRUE)` (`r apa_mean_conf(data_vviq$vviq)`). Questionnaire scores are missing for `r sum(is.na(data_vviq$vviq))` sessions without all 16 saved questionnaire responses; a missing questionnaire score does not by itself exclude a session from the memory analyses.
-
-## Color recall accuracy
-
-```{r}
-#| label: fig-noise-effect
-#| fig-cap: "Effect of target and distractor noise on color recall accuracy. Error bars represent 95% confidence intervals corrected for within-subject comparisons."
-#| fig-asp: 0.75
-
-plot_pointrange(data_color[is_outlier==F], aes(x = target_noise, 
-                               y = abs_be_c, 
-                               color = distr_noise),
-               within_subj = TRUE, 
-               wid = 'participant', 
-               withinvars = c('target_noise','distr_noise')) +
-  labs(x = 'Target noise level', 
-       y = 'Average absolute error (degrees)',
-       color = 'Distractor noise') +
-  scale_color_discrete(labels = c("Low", "High")) +
-  scale_x_discrete(labels = c("Low", "High")) 
-
-# Run ANOVA
-ez_res_abs_err <- ezANOVA(
-  data = data_color,
-  dv = .(abs_be_c),
-  wid = .(participant),
-  within = .(target_noise, distr_noise),
-  type = 3
-)
-```
-
-A repeated-measures ANOVA tested the effect of target noise (`r apa(ez_res_abs_err, 'target_noise')`) and the target × distractor noise interaction (`r apa(ez_res_abs_err, 'target_noise:distr_noise')`). A paired comparison of raw absolute error between low- and high-noise targets gave `r apa(dcast(data_color, participant~target_noise, value.var = 'abs_err', fun = mean)[,t.test(low, high, paired = T)])`. Paired comparisons of distractor noise using bias-corrected absolute error gave `r apa(dcast(data_color[target_noise=='low'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` at low target noise and `r apa(dcast(data_color[target_noise=='high'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` at high target noise.
-
-## Imagery measures and memory accuracy
-
-The matrix in @fig-imagery-correlations compares VVIQ, the second-run imagery/afterimage rating, and memory mean absolute error (MAE). Higher VVIQ and afterimage ratings indicate stronger imagery; lower memory MAE indicates better accuracy. Memory MAE is the mean absolute bias-corrected angular error across non-outlier main-task reports, after the existing participant exclusions. Run 1 of the afterimage task is practice; the unsure response (code 3) is missing rather than a high imagery score.
-
 ```{r}
 #| label: imagery-participant-metrics
-memory_metrics <- data_color[is_outlier == FALSE,
+data_color_accuracy <- data_color[is_outlier == FALSE]
+data_color_accuracy[, cue_n := factor(cue_n, levels = 1:2)]
+memory_metrics <- data_color_accuracy[,
   .(memory_mae = mean(abs_be_c), n_memory_reports = .N), by = participant]
 imagery_metrics <- merge(data_vviq, memory_metrics, by = 'participant', all.x = TRUE)
 stopifnot(nrow(imagery_metrics) == nrow(finished_study_ids),
   !anyDuplicated(imagery_metrics$participant),
   all(is.na(imagery_metrics$vviq) | imagery_metrics$vviq %between% c(0, 64)),
   all(is.na(imagery_metrics$afterimage_relative) | imagery_metrics$afterimage_relative %in% -2:2))
-fwrite(imagery_metrics, 'imagery_participant_metrics.csv')
 
 correlation_specs <- data.table(
   x = c('vviq', 'vviq', 'afterimage_relative'),
@@ -399,25 +347,159 @@ imagery_correlations <- rbindlist(lapply(seq_len(nrow(correlation_specs)), funct
 fwrite(imagery_correlations, 'imagery_correlations.csv')
 ```
 
+## Imagery and memory scores
+
+```{r}
+#| label: fig-vviq
+#| fig-cap: "Distributions of VVIQ scores, imagery/afterimage ratings and memory mean absolute error (MAE). Each dot represents one participant with that measure available. Higher imagery scores indicate stronger imagery; lower MAE indicates better memory."
+#| fig-asp: 0.85
+
+score_labels <- c(vviq = 'VVIQ score',
+  afterimage_relative = 'Imagery / afterimage rating', memory_mae = 'Memory MAE (degrees)')
+score_dot_sizes <- c(vviq = 1, afterimage_relative = 0.08, memory_mae = 0.3)
+score_distributions <- lapply(names(score_labels), function(measure) {
+  ggplot(imagery_metrics[is.finite(get(measure))], aes(x = .data[[measure]])) +
+    geom_dotplot(binwidth = 1, dotsize = score_dot_sizes[[measure]]) +
+    labs(x = score_labels[[measure]]) +
+    theme(axis.title.y = element_blank(), axis.text.y = element_blank(),
+      axis.ticks.y = element_blank())
+})
+score_distributions[[1]] <- score_distributions[[1]] + coord_cartesian(xlim = c(0, 64))
+score_distributions[[2]] <- score_distributions[[2]] +
+  scale_x_continuous(breaks = -2:2, limits = c(-2.5, 2.5))
+patchwork::wrap_plots(score_distributions, ncol = 1)
+```
+
+The VVIQ scores were between `r min(data_vviq$vviq, na.rm = TRUE)` and `r max(data_vviq$vviq, na.rm = TRUE)` (`r apa_mean_conf(data_vviq$vviq)`). Questionnaire scores are missing for `r sum(is.na(data_vviq$vviq))` sessions without all 16 saved questionnaire responses; a missing questionnaire score does not by itself exclude a session from the memory analyses.
+
+## Color recall accuracy
+
+The data were preprocessed to exclude outliers and correct systematic response biases for different hues.
+
+```{r}
+#| label: fig-noise-effect
+#| fig-cap: "Effect of target and distractor noise on color recall accuracy, shown separately for the first and second reports. Error bars represent 95% confidence intervals corrected for within-subject comparisons."
+#| fig-width: 9
+#| fig-asp: 0.5
+
+plot_pointrange(data_color_accuracy, aes(x = target_noise, 
+                               y = abs_be_c, 
+                               color = distr_noise),
+               within_subj = TRUE, 
+               wid = 'participant', 
+               withinvars = c('target_noise', 'distr_noise', 'cue_n')) +
+  facet_wrap(~cue_n, labeller = as_labeller(c('1' = 'First report', '2' = 'Second report'))) +
+  labs(x = 'Target noise level', 
+       y = 'Average absolute error (degrees)',
+       color = 'Distractor noise') +
+  scale_color_discrete(labels = c("Low", "High")) +
+  scale_x_discrete(labels = c("Low", "High")) 
+
+# Run ANOVA
+ez_res_abs_err <- ezANOVA(
+  data = data_color_accuracy,
+  dv = .(abs_be_c),
+  wid = .(participant),
+  within = .(target_noise, distr_noise, cue_n),
+  type = 3
+)
+```
+
+A three-way repeated-measures ANOVA tested target noise, distractor noise and report order, including all their interactions. The results are summarized below.
+
+```{r}
+#| label: noise-order-anova-results
+#| results: asis
+anova_effect_labels <- c(target_noise = 'Target noise', distr_noise = 'Distractor noise',
+  cue_n = 'Report order', `target_noise:distr_noise` = 'Target noise × distractor noise',
+  `target_noise:cue_n` = 'Target noise × report order',
+  `distr_noise:cue_n` = 'Distractor noise × report order',
+  `target_noise:distr_noise:cue_n` = 'Target noise × distractor noise × report order')
+stopifnot(setequal(ez_res_abs_err$ANOVA$Effect, names(anova_effect_labels)))
+knitr::kable(data.table(
+  Effect = unname(anova_effect_labels[ez_res_abs_err$ANOVA$Effect]),
+  Statistics = vapply(ez_res_abs_err$ANOVA$Effect,
+    function(effect) apa(ez_res_abs_err, effect), character(1))))
+```
+
+The following paired comparisons average across report order. A comparison of raw absolute error between low- and high-noise targets gave `r apa(dcast(data_color_accuracy, participant~target_noise, value.var = 'abs_err', fun = mean)[,t.test(low, high, paired = T)])`. Paired comparisons of distractor noise using bias-corrected absolute error gave `r apa(dcast(data_color_accuracy[target_noise=='low'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` at low target noise and `r apa(dcast(data_color_accuracy[target_noise=='high'], participant~distr_noise, value.var = 'abs_be_c', fun = mean)[,t.test(low, high, paired = T)])` at high target noise.
+
+## Imagery measures and memory accuracy
+
+The matrix in @fig-imagery-correlations compares VVIQ, the second-run imagery/afterimage rating, memory mean absolute error (MAE), the effect of target noise, and the cost of reporting the second item. Higher VVIQ and afterimage ratings indicate stronger imagery; lower memory MAE indicates better accuracy. Memory MAE is the mean absolute bias-corrected angular error across non-outlier main-task reports, after the existing participant exclusions. Run 1 of the afterimage task is practice; the unsure response (code 3) is missing rather than a high imagery score.
+
+
 The table contains `r nrow(imagery_metrics)` finished sessions. VVIQ is available for `r sum(is.finite(imagery_metrics$vviq))`, the afterimage rating for `r sum(is.finite(imagery_metrics$afterimage_relative))`, and memory MAE for `r sum(is.finite(imagery_metrics$memory_mae))`. Each panel uses the sessions with both of its measures available; the imagery-only comparison retains sessions excluded from the memory analyses.
 
 ```{r}
+#| label: imagery-condition-effects
+condition_accuracy <- data_color_accuracy[, .(mae = mean(abs_be_c)),
+  by = .(participant, target_noise, distr_noise, similarity_bin, cue_n)]
+stopifnot(nrow(condition_accuracy) == uniqueN(data_color_accuracy$participant) * 24L)
+
+target_accuracy <- dcast(condition_accuracy, participant ~ target_noise,
+  value.var = 'mae', fun.aggregate = mean)
+noise_changes <- target_accuracy[, .(participant, effect = 'target_noise', change = high - low)]
+report_accuracy <- dcast(condition_accuracy, participant ~ cue_n,
+  value.var = 'mae', fun.aggregate = mean)
+report_changes <- report_accuracy[, .(participant, effect = 'report_order', change = `2` - `1`)]
+condition_effects <- merge(rbind(noise_changes, report_changes),
+  imagery_metrics[, .(participant, vviq, afterimage_relative)], by = 'participant', all.x = TRUE)
+stopifnot(nrow(condition_effects) == uniqueN(data_color_accuracy$participant) * 2L,
+  !anyDuplicated(condition_effects[, .(participant, effect)]))
+fwrite(condition_effects, 'imagery_condition_effects.csv')
+effects_wide <- dcast(condition_effects, participant ~ effect, value.var = 'change')
+setnames(effects_wide, c('target_noise', 'report_order'),
+  c('target_noise_cost', 'report_order_cost'))
+imagery_metrics <- merge(imagery_metrics, effects_wide, by = 'participant', all.x = TRUE)
+fwrite(imagery_metrics, 'imagery_participant_metrics.csv')
+
+effect_specs <- CJ(effect = c('target_noise', 'report_order'),
+  measure = c('vviq', 'afterimage_relative'))
+effect_correlations <- rbindlist(lapply(seq_len(nrow(effect_specs)), function(i) {
+  spec <- effect_specs[i]
+  pairs <- condition_effects[effect == spec$effect & is.finite(get(spec$measure))]
+  method <- if (spec$measure == 'vviq') 'pearson' else 'spearman'
+  test <- if (nrow(pairs) >= 3L && uniqueN(pairs[[spec$measure]]) > 1L && uniqueN(pairs$change) > 1L)
+    cor.test(pairs[[spec$measure]], pairs$change, method = method, exact = FALSE) else NULL
+  data.table(effect = spec$effect, measure = spec$measure, method, n = nrow(pairs),
+    estimate = if (is.null(test)) NA_real_ else unname(test$estimate),
+    p = if (is.null(test)) NA_real_ else test$p.value)
+}))
+effect_correlations[, p_holm := p.adjust(p, method = 'holm')]
+fwrite(effect_correlations, 'imagery_effect_correlations.csv')
+
+effect_labels <- c(target_noise = 'Noise in the target',
+  report_order = 'Second report minus first')
+measure_labels <- c(vviq = 'VVIQ', afterimage_relative = 'Imagery / afterimage')
+effect_pairs <- melt(condition_effects,
+  id.vars = c('participant', 'effect', 'change'),
+  measure.vars = c('vviq', 'afterimage_relative'),
+  variable.name = 'measure', value.name = 'imagery')
+
+report_order_test <- t.test(report_changes$change, mu = 0)
+```
+
+A positive target-noise cost means higher error with high-noise targets than with low-noise targets. A positive second-report cost means higher error on the second report than on the first. These are the `target_noise_cost` and `report_order_cost` columns in `imagery_participant_metrics.csv`.
+
+```{r}
 #| label: fig-imagery-correlations
-#| fig-cap: "Scatterplot matrix of VVIQ, second-run imagery/afterimage ratings and memory MAE. Each off-diagonal panel shows one point per participant with both measures, an ordinary least-squares line and its 95% confidence band; diagonal panels show distributions. The regression lines are descriptive, including for the ordinal afterimage rating. Missing values are omitted separately for each pair."
-#| fig-width: 9
+#| fig-cap: "Scatterplot matrix of imagery measures, memory MAE, target-noise cost and second-report cost. Each off-diagonal panel shows one point per participant with both measures, an ordinary least-squares line and its 95% confidence band; diagonal panels show distributions. The regression lines are descriptive, including for the ordinal afterimage rating. Missing values are omitted separately for each pair."
+#| fig-width: 13
 #| fig-asp: 1
 
 smooth_panel <- list(continuous = GGally::wrap('smooth', method = 'lm', se = TRUE,
   colour = default_colors[1], alpha = 0.5, size = 1.7))
 imagery_matrix <- GGally::ggpairs(as.data.frame(imagery_metrics),
-  columns = c('vviq', 'afterimage_relative', 'memory_mae'),
-  columnLabels = c('VVIQ', 'Imagery / afterimage', 'Memory MAE (deg.)'),
+  columns = c('vviq', 'afterimage_relative', 'memory_mae', 'target_noise_cost', 'report_order_cost'),
+  columnLabels = c('VVIQ', 'Imagery /\nafterimage', 'Memory MAE\n(deg.)',
+    'Target-noise\ncost (deg.)', 'Second-report\ncost (deg.)'),
   lower = smooth_panel, upper = smooth_panel,
   diag = list(continuous = 'densityDiag'), progress = FALSE) +
   theme(strip.text = element_text(size = 10), axis.text = element_text(size = 8))
 imagery_matrix
 
-ggsave('imagery_correlation_matrix.png', imagery_matrix, width = 9, height = 9, dpi = 200, bg = 'white')
+ggsave('imagery_correlation_matrix.png', imagery_matrix, width = 13, height = 13, dpi = 200, bg = 'white')
 ```
 
 Correlations involving the ordinal afterimage rating use Spearman's rho; VVIQ versus memory MAE uses Pearson's r. Tests use the original scores and pairwise complete observations. The p-values below are exploratory and unadjusted for multiple comparisons. A correlation is left missing if there are fewer than three complete pairs or either measure has no variation.
@@ -426,7 +508,72 @@ Correlations involving the ordinal afterimage rating use Spearman's rho; VVIQ ve
 #| results: asis
 knitr::kable(imagery_correlations[, .(Comparison = comparison,
   Method = ifelse(method == 'spearman', 'Spearman rho', 'Pearson r'),
-  N = n, Correlation = round(estimate, 3), p = vapply(p, round_p, character(1)))])
+  N = n, Correlation = round(estimate, 3), p = vapply(p, round_p, character(1), include.rel = FALSE))])
 ```
 
 The participant-level values and pairwise statistics are available in `imagery_participant_metrics.csv` and `imagery_correlations.csv`. Memory exclusion does not turn a valid questionnaire or afterimage response into missing data.
+
+
+## Does imagery ability predict the effect of noise?
+
+For each person, we calculated how much their average error changed from low to high noise in the target patch. Positive changes mean that noise made memory less accurate. We then checked whether these changes were related to VVIQ scores or imagery/afterimage ratings. Other conditions were weighted equally in these comparisons.
+
+
+As above, VVIQ associations use Pearson's correlation and imagery/afterimage associations use Spearman's correlation. The tables for these last two questions show both the original p-values and p-values adjusted with Holm's method across their four correlations. These analyses are exploratory.
+
+```{r}
+#| results: asis
+knitr::kable(effect_correlations[effect != 'report_order', .(
+  Comparison = unname(effect_labels[effect]),
+  `Imagery measure` = unname(measure_labels[measure]), N = n,
+  Correlation = round(estimate, 3), p = vapply(p, round_p, character(1), include.rel = FALSE),
+  `Holm-adjusted p` = vapply(p_holm, round_p, character(1), include.rel = FALSE))])
+```
+
+```{r}
+#| label: fig-imagery-noise-changes
+#| fig-cap: "Imagery scores and changes in memory error when target noise increases. Each point is one participant. Positive changes mean worse memory with high noise. Lines and 95% confidence bands show descriptive linear fits."
+#| fig-width: 9
+#| fig-asp: 0.4
+
+imagery_change_plot <- ggplot(effect_pairs[is.finite(imagery)],
+  aes(x = imagery, y = change)) +
+  geom_hline(yintercept = 0, linetype = 2, colour = 'grey60') +
+  geom_point(colour = default_colors[1], alpha = 0.7) +
+  geom_smooth(method = 'lm', se = TRUE, colour = 'black') +
+  facet_wrap(~measure, scales = 'free_x',
+    labeller = labeller(measure = measure_labels)) +
+  labs(x = 'Imagery score')
+imagery_change_plot %+% effect_pairs[effect == 'target_noise' & is.finite(imagery)] +
+  labs(y = 'High-noise minus low-noise error (degrees)')
+```
+
+`r if (all(effect_correlations[effect != 'report_order', p_holm] >= .05, na.rm = TRUE)) 'Neither imagery measure clearly predicted the effect of noise after adjustment for the four correlations.' else 'At least one imagery measure was related to a noise effect after adjustment for the four correlations; the table identifies the measure and condition.'` The estimates and their uncertainty are shown in @fig-imagery-noise-changes. A nonsignificant result does not establish that imagery has no influence on sensitivity to noise.
+
+## Does imagery ability predict the cost of reporting the second item?
+
+We calculated each person's increase in average error from the first report to the second. Positive values mean that the second report was less accurate. Across participants, this increase was `r apa_mean_conf(report_changes$change)` degrees (`r apa(report_order_test)`).
+
+We then asked whether imagery scores predicted this increase. A negative correlation would mean that people with stronger imagery lost less accuracy on their second report.
+
+```{r}
+#| results: asis
+knitr::kable(effect_correlations[effect == 'report_order', .(
+  `Imagery measure` = unname(measure_labels[measure]), N = n,
+  Correlation = round(estimate, 3), p = vapply(p, round_p, character(1), include.rel = FALSE),
+  `Holm-adjusted p` = vapply(p_holm, round_p, character(1), include.rel = FALSE))])
+```
+
+```{r}
+#| label: fig-imagery-report-order-change
+#| fig-cap: "Imagery scores and the increase in memory error from the first to the second report. Each point is one participant. Positive values mean a less accurate second report. Lines and 95% confidence bands show descriptive linear fits."
+#| fig-width: 9
+#| fig-asp: 0.4
+
+imagery_change_plot %+% effect_pairs[effect == 'report_order' & is.finite(imagery)] +
+  labs(y = 'Second-report minus first-report error (degrees)')
+```
+
+`r if (all(effect_correlations[effect == 'report_order', p_holm] >= .05, na.rm = TRUE)) 'Neither imagery measure clearly predicted the change from the first report to the second after adjustment for the four correlations.' else 'At least one imagery measure predicted the change from the first report to the second after adjustment for the four correlations; the table shows its direction.'` The sample leaves uncertainty about whether people with stronger imagery lose less accuracy on their second report.
+
+The participant comparisons and their correlations are available in `imagery_condition_effects.csv` and `imagery_effect_correlations.csv`. All comparisons use the same outlier exclusions as the earlier accuracy analyses.
