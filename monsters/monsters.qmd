@@ -229,6 +229,8 @@ plot_pointrange(data_rt, aes(x = trial_i_within_blockf, y = rt, color = expected
 t_res <- rbindlist(lapply(1:8, \(trial_i){
   res <- dcast(data_rt[trial_i_within_block>(trial_i-1)], participant ~ trial_i_within_block==trial_i , value.var = 'rt', fun = mean)[,t.test(`FALSE`,`TRUE`, paired = T)]
   data.table(
+    position = trial_i,
+    rt_difference = -unname(res$estimate),
     statistic = unname(res$statistic),
     parameter = unname(res$parameter),
     p.value = res$p.value,
@@ -238,7 +240,9 @@ t_res <- rbindlist(lapply(1:8, \(trial_i){
 t_test_1_vs_rest <- dcast(data_rt, participant ~ trial_i_within_block==1 , value.var = 'rt', fun = mean)[,t.test(`TRUE`,`FALSE`, paired = T)]
 ```
 
-We assessed 'priming of pop-out' by comparing response time (RT) at each position with the average of subsequent positions in the sequence. The first-position comparison gave `r t_res[1, descr]`. For positions 2–8, `r sum(t_res[2:8, p.value] < .05)` of seven comparisons had unadjusted _p_ < .05; the smallest p-value was _p_ `r round_p(min(t_res[2:8, p.value]))`. These position comparisons are unadjusted for multiple testing.
+We assessed 'priming of pop-out' by comparing each participant's mean response time (RT) at a given position with their mean RT across all later trials in the sequence. Responses at the first position were `r sprintf('%.1f', t_res[position == 1, rt_difference])` ms slower than on later trials (`r t_res[position == 1, descr]`), consistent with a benefit from repeating the target and distractor colors within a sequence.
+
+Among positions 2 to 8, responses were also slower than on later trials at `r paste_and(t_res[position > 1 & p.value < .05, sprintf('position %d (%.1f ms slower; %s)', position, rt_difference, descr)])`. The comparisons at positions `r paste_and(as.character(t_res[position > 1 & p.value >= .05, position]))` did not reach _p_ < .05. These exploratory position comparisons are unadjusted for multiple testing, so the weaker evidence at some positions should be interpreted cautiously.
 
 ```{r}
 #| label: fig-bef_aft_exp_end
